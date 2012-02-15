@@ -1,3 +1,11 @@
+capi-ui-efl-util (0.1.0-5) unstable; urgency=low
+
+   * Added version numbering 
+   * Git: api/efl-util
+   * Tag: capi-ui-efl-util_0.1.0-5
+
+ -- Kyuhun Jung <kyuhun.jung@samsung.com>  Wed, 15 Feb 2012 10:50:29 +0900
+
 capi-ui-efl-util (0.1.0-4) unstable; urgency=low
 
    * Initial release.
