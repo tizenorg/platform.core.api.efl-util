@@ -1,9 +1,10 @@
+#sbs-git:slp/api/efl-util capi-ui-efl-util 0.1.0 4d35c6180088e0d005081bf798ab6a20b05e9f14
 Name:       capi-ui-efl-util
-Summary:    An EFL utility library in Tizen Native API
-Version:    0.1.0
-Release:    5
+Summary:    An EFL utility library in SLP C API
+Version: 0.1.0
+Release:    1
 Group:      TO_BE/FILLED_IN
-License:    Apache-2.0
+License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
 BuildRequires:  cmake
 BuildRequires:  pkgconfig(dlog)
@@ -18,7 +19,7 @@ Requires(postun): /sbin/ldconfig
 
 
 %package devel
-Summary:  An EFL utility library in Tizen Native API (Development)
+Summary:  An EFL utility library in SLP C API (Development)
 Group:    TO_BE/FILLED_IN
 Requires: %{name} = %{version}-%{release}
 
