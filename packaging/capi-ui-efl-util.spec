@@ -1,7 +1,6 @@
-#sbs-git:slp/api/efl-util capi-ui-efl-util 0.1.0 4d35c6180088e0d005081bf798ab6a20b05e9f14
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
-Version: 0.1.0
+Version:    0.1.0
 Release:    1
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
@@ -12,8 +11,6 @@ BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(utilX)
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
-Requires(post): /sbin/ldconfig
-Requires(postun): /sbin/ldconfig
 
 %description
 
@@ -31,13 +28,10 @@ Requires: %{name} = %{version}-%{release}
 
 %build
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-cmake . -DCMAKE_INSTALL_PREFIX=/usr -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
-
-
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
 make %{?jobs:-j%jobs}
 
 %install
-rm -rf %{buildroot}
 %make_install
 
 # for license notification
