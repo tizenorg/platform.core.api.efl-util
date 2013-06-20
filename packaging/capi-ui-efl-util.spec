@@ -2,8 +2,8 @@ Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
 Version:    0.1.0
 Release:    1
-Group:      TO_BE/FILLED_IN
-License:    TO BE FILLED IN
+Group:      Graphics & UI Framework/API
+License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
 BuildRequires:  cmake
 BuildRequires:  pkgconfig(dlog)
@@ -13,14 +13,15 @@ BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
 
 %description
+An EFL utility library in SLP C API.
 
 
 %package devel
 Summary:  An EFL utility library in SLP C API (Development)
-Group:    TO_BE/FILLED_IN
 Requires: %{name} = %{version}-%{release}
 
 %description devel
+%devel_desc
 
 %prep
 %setup -q
@@ -34,18 +35,14 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
-# for license notification
-mkdir -p %{buildroot}/usr/share/license
-cp -a LICENSE.APLv2 %{buildroot}/usr/share/license/%{name}
-
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
 
 %files
+%license LICENSE.APLv2
 %{_libdir}/libcapi-ui-efl-util.so.*
-/usr/share/license/%{name}
 
 %files devel
 %{_includedir}/ui/*.h
