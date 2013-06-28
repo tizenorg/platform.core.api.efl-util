@@ -5,6 +5,7 @@ Release:    1
 Group:      Graphics & UI Framework/API
 License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
+Source1001: 	capi-ui-efl-util.manifest
 BuildRequires:  cmake
 BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(x11)
@@ -25,6 +26,7 @@ Requires: %{name} = %{version}-%{release}
 
 %prep
 %setup -q
+cp %{SOURCE1001} .
 
 
 %build
@@ -41,10 +43,12 @@ make %{?jobs:-j%jobs}
 
 
 %files
+%manifest %{name}.manifest
 %license LICENSE.APLv2
 %{_libdir}/libcapi-ui-efl-util.so.*
 
 %files devel
+%manifest %{name}.manifest
 %{_includedir}/ui/*.h
 %{_libdir}/pkgconfig/*.pc
 %{_libdir}/libcapi-ui-efl-util.so
