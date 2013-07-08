@@ -1,0 +1,8 @@
+Change-Id: Icf11e73b24b0ba86ea8b0991e042bc7a76bb7b04
+Code-Review+2: Ryan Ware <ware@linux.intel.com>
+Verified+1: Ryan Ware <ware@linux.intel.com>
+Submitted-by: Ryan Ware <ware@linux.intel.com>
+Submitted-at: Mon, 08 Jul 2013 10:07:02 -0700
+Reviewed-on: https://review.tizen.org/gerrit/4513
+Project: platform/core/api/efl-util
+Branch: refs/heads/tizen
