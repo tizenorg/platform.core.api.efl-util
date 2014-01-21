@@ -10,11 +10,19 @@ SET(PREFIX ${CMAKE_INSTALL_PREFIX})
 SET(INC_DIR include)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
-SET(dependents "dlog utilX elementary capi-base-common")
+# required dependencies
+SET(dependents "dlog elementary capi-base-common")
 
 INCLUDE(FindPkgConfig)
 pkg_check_modules(${fw_name} REQUIRED ${dependents})
 FOREACH(flag ${${fw_name}_CFLAGS})
+    SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
+ENDFOREACH(flag)
+
+# optional
+SET(ECORE_X "ecore-x utilX")
+pkg_check_modules(ECORE_X ${ECORE_X})
+FOREACH(flag ${${ECORE_X}_CFLAGS})
     SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
 ENDFOREACH(flag)
 
@@ -60,6 +68,13 @@ CONFIGURE_FILE(
     ${CMAKE_CURRENT_SOURCE_DIR}/${fw_name}.pc
     @ONLY
 )
+
+CONFIGURE_FILE(
+    config.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h
+    @ONLY
+)
+
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${fw_name}.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 
 IF(UNIX)
