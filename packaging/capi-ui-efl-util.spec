@@ -1,3 +1,4 @@
+%bcond_with x
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
 Version:    0.1.0
@@ -8,8 +9,10 @@ Source0:    %{name}-%{version}.tar.gz
 Source1001: 	capi-ui-efl-util.manifest
 BuildRequires:  cmake
 BuildRequires:  pkgconfig(dlog)
+%if %{with x}
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(utilX)
+%endif
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
 

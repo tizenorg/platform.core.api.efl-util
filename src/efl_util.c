@@ -75,13 +75,13 @@ int efl_util_set_notification_window_level (Evas_Object* window, efl_util_notifi
 
 int efl_util_get_notification_window_level (Evas_Object* window, efl_util_notification_level_e* level)
 {
-	Ecore_X_Window_Type window_type;
-	Utilx_Notification_Level utilx_level;
 	
 	EINA_SAFETY_ON_NULL_RETURN_VAL(window,
 				       EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
 
 #if ECORE_X_FOUND
+	Ecore_X_Window_Type window_type;
+	Utilx_Notification_Level utilx_level;
 	Ecore_X_Window xwin = elm_win_xwindow_get(window);
 	if (xwin)
 	{

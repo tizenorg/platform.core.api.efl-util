@@ -1,7 +1,7 @@
 #ifndef _CONFIG_H_H_
 #define _CONFIG_H_H_
 
-#define ECORE_X_FOUND @ECORE_X_FOUND@
+#define ECORE_X_FOUND @HAVE_X@
 
 // use the cmake @ECORE_WAYLAND_FOUND@ when wayland supported
 #define ECORE_WAYLAND_FOUND 0

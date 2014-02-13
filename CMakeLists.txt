@@ -26,6 +26,13 @@ FOREACH(flag ${${ECORE_X}_CFLAGS})
     SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
 ENDFOREACH(flag)
 
+IF (ECORE_X_FOUND)
+   SET(HAVE_X "1")
+   SET(deps "${deps} ecore-x utilX")
+ELSE (ECORE_X_FOUND)
+   SET(HAVE_X "0")
+ENDIF (ECORE_X_FOUND)
+
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS} -fPIC -Wall -Werror")
 SET(CMAKE_C_FLAGS_DEBUG "-O0 -g")
 
