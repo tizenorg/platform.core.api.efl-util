@@ -1,7 +1,7 @@
 %bcond_with x
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
-Version:    0.1.0
+Version:    0.1.1
 Release:    1
 Group:      Graphics & UI Framework/API
 License:    Apache-2.0
@@ -12,6 +12,7 @@ BuildRequires:  pkgconfig(dlog)
 %if %{with x}
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(utilX)
+BuildRequires:  pkgconfig(ecore-x)
 %endif
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
@@ -40,6 +41,10 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
+# for license notification
+mkdir -p %{buildroot}/usr/share/license
+cp -a LICENSE.APLv2 %{buildroot}/usr/share/license/%{name}
+
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
@@ -49,11 +54,11 @@ make %{?jobs:-j%jobs}
 %manifest %{name}.manifest
 %license LICENSE.APLv2
 %{_libdir}/libcapi-ui-efl-util.so.*
+/usr/share/license/%{name}
 
 %files devel
 %manifest %{name}.manifest
-%{_includedir}/ui/*.h
+%{_includedir}/ui/efl_util.h
 %{_libdir}/pkgconfig/*.pc
 %{_libdir}/libcapi-ui-efl-util.so
-
-
+%exclude %{_includedir}/ui/config.h
