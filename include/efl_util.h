@@ -167,8 +167,7 @@ typedef enum
 	EFL_UTIL_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER, /**< Invalid parameter */
 	EFL_UTIL_ERROR_OUT_OF_MEMORY = TIZEN_ERROR_OUT_OF_MEMORY, /**< Out of memory */
 	EFL_UTIL_ERROR_PERMISSION_DENIED = TIZEN_ERROR_PERMISSION_DENIED, /**< Permisson denied */
-	EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = -0x02800000 | 0x01  /**< Window type not supported */
-	//EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01  /**< Window type not supported */
+	EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01  /**< Window type not supported */
 } efl_util_error_e;
 
 // TODO: are we going to have more states than on/off shouldn't we move it to a bool in the API's
