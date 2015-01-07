@@ -39,13 +39,17 @@ typedef struct _notification_error_cb_info
 Eina_List *_g_notification_error_cb_info_list;
 static Ecore_Event_Handler* _noti_level_access_result_handler = NULL;
 static int _noti_handler_count = 0;
+
+static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object *window);
+static Eina_Bool _efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
+static Eina_Bool _efl_util_notification_info_del(Evas_Object *window);
+
+#if ECORE_X_FOUND
 static unsigned int _noti_level_access_result_atom = 0;
 
 static Eina_Bool _efl_util_client_message(void *data, int type, void *event);
-static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object *window);
 static notification_error_cb_info *_notification_error_cb_info_find_by_xwin(unsigned int xwin);
-static Eina_Bool _efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
-static Eina_Bool _efl_util_notification_info_del(Evas_Object *window);
+#endif
 
 
 int efl_util_set_notification_window_level (Evas_Object* window, efl_util_notification_level_e level)
@@ -401,9 +405,9 @@ int efl_util_set_window_opaque_state (Evas_Object *win, Efl_Util_Opaque_State st
 	return 0;
 }
 
+#if ECORE_X_FOUND
 static Eina_Bool _efl_util_client_message(void *data, int type, void *event)
 {
-#if ECORE_X_FOUND
 	Ecore_X_Event_Client_Message *ev;
 
 	ev = event;
@@ -428,7 +432,6 @@ static Eina_Bool _efl_util_client_message(void *data, int type, void *event)
 			}
 		}
 	}
-#endif
 
 	return ECORE_CALLBACK_PASS_ON;
 }
@@ -453,6 +456,7 @@ static notification_error_cb_info *_notification_error_cb_info_find_by_xwin(unsi
 
 	return NULL;
 }
+#endif
 
 static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object *window)
 {
