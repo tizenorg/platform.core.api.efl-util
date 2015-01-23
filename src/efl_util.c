@@ -218,190 +218,42 @@ int efl_util_unset_notification_window_level_error_cb(Evas_Object *window)
 
 int efl_util_grab_key (Evas_Object *obj, const char* key, int grab_mode)
 {
-	EINA_SAFETY_ON_NULL_RETURN_VAL(obj, 0);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(obj);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		return utilx_grab_key(x_disp, x_win, key, grab_mode);
-	}
-
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(obj);
-	if (wl_win)
-	{
-		printf("not implemented for wayland yet\n");
-		return 0;
-	}
-#endif
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 
 	return 0;
 }
 
 int efl_util_ungrab_key (Evas_Object *obj, const char* key)
 {
-	EINA_SAFETY_ON_NULL_RETURN_VAL(obj, 0);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(obj);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		return utilx_ungrab_key (x_disp, x_win, key);
-	}
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(obj);
-	if (wl_win)
-	{
-		printf("not implemented for wayland yet\n");
-		return 0;
-	}
-#endif
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 
 	return 0;
 }
 
 void efl_util_set_system_notification_level (Evas_Object *obj, Efl_Util_Notification_Level level)
 {
-	EINA_SAFETY_ON_NULL_RETURN(obj);
-	EINA_SAFETY_ON_FALSE_RETURN(level >= EFL_UTIL_NOTIFICATION_LEVEL_LOW &&
-				    level <= EFL_UTIL_NOTIFICATION_LEVEL_UNKNOWN);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(obj);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		utilx_set_system_notification_level(x_disp, x_win, level);
-		return;
-	}
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(obj);
-	if (wl_win)
-	{
-		printf("not implemented for wayland yet\n");
-	}
-#endif
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 }
 
 Efl_Util_Notification_Level efl_util_get_system_notification_level (Evas_Object *obj)
 {
-	EINA_SAFETY_ON_NULL_RETURN_VAL(obj, EFL_UTIL_NOTIFICATION_LEVEL_UNKNOWN);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(obj);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		return utilx_get_system_notification_level(x_disp, x_win);
-	}
-
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(obj);
-	if (wl_win)
-	{
-		printf("not implemented for wayland yet\n");
-		return EFL_UTIL_NOTIFICATION_LEVEL_UNKNOWN;
-	}
-#endif
-
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 	return EFL_UTIL_NOTIFICATION_LEVEL_UNKNOWN;
 }
 
 void efl_util_netwm_window_type_set(Evas_Object *obj, Efl_Util_Window_Type type)
 {
-	EINA_SAFETY_ON_NULL_RETURN(obj);
-	EINA_SAFETY_ON_FALSE_RETURN(type == EFL_UTIL_WINDOW_TYPE_NORMAL ||
-				    type == EFL_UTIL_WINDOW_TYPE_NOTIFICATION);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-
-	x_win = elm_win_xwindow_get(obj);
-	if (x_win)
-	{
-		ecore_x_netwm_window_type_set(x_win, type);
-		return;
-	}
-
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(obj);
-	if (wl_win)
-		printf("not implemented for wayland yet\n");
-#endif
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 }
 
 void efl_util_set_window_effect_style(Evas_Object *win, Efl_Util_Effect_Type type, Efl_Util_Effect_Style style)
 {
-
-	EINA_SAFETY_ON_NULL_RETURN(win);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(win);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		utilx_set_window_effect_style(x_disp, x_win, type, style);
-		return;
-	}
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(win);
-	if (wl_win)
-		printf("not implemented for wayland yet\n");
-#endif
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 }
 
 int efl_util_set_window_opaque_state (Evas_Object *win, Efl_Util_Opaque_State state)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(win, 0);
-
-#if ECORE_X_FOUND
-	Ecore_X_Window x_win;
-	Ecore_X_Display *x_disp;
-
-	x_win = elm_win_xwindow_get(win);
-	if (x_win)
-	{
-		x_disp = ecore_x_display_get();
-		return utilx_set_window_opaque_state(x_disp, x_win, state);
-	}
-#endif
-
-#if ECORE_WAYLAND_FOUND
-	Ecore_Wl_Window wl_win = elm_win_wl_window_get(win);
-	if (wl_win)
-		printf("not implemented for wayland yet\n");
-#endif
-
+	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
 	return 0;
 }
 
