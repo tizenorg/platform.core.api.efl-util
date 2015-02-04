@@ -13,25 +13,20 @@ INCLUDE_DIRECTORIES(${INC_DIR})
 # required dependencies
 SET(dependents "dlog elementary capi-base-common")
 
+IF (WITH_X11)
+    ADD_DEFINITIONS("-DX11")
+    SET(dependents "${dependents} ecore-x utilX")
+ENDIF (WITH_X11)
+
+IF (WITH_WAYLAND)
+    ADD_DEFINITIONS("-DWAYLAND")
+ENDIF (WITH_WAYLAND)
+
 INCLUDE(FindPkgConfig)
 pkg_check_modules(${fw_name} REQUIRED ${dependents})
 FOREACH(flag ${${fw_name}_CFLAGS})
     SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
 ENDFOREACH(flag)
-
-# optional
-SET(ECORE_X "ecore-x utilX")
-pkg_check_modules(ECORE_X ${ECORE_X})
-FOREACH(flag ${${ECORE_X}_CFLAGS})
-    SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
-ENDFOREACH(flag)
-
-IF (ECORE_X_FOUND)
-   SET(HAVE_X "1")
-   SET(deps "${deps} ecore-x utilX")
-ELSE (ECORE_X_FOUND)
-   SET(HAVE_X "0")
-ENDIF (ECORE_X_FOUND)
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS} -fPIC -Wall -Werror")
 SET(CMAKE_C_FLAGS_DEBUG "-O0 -g")
@@ -75,13 +70,6 @@ CONFIGURE_FILE(
     ${CMAKE_CURRENT_SOURCE_DIR}/${fw_name}.pc
     @ONLY
 )
-
-CONFIGURE_FILE(
-    config.h.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/config.h
-    @ONLY
-)
-
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${fw_name}.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 
 IF(UNIX)

@@ -1,4 +1,6 @@
 %bcond_with x
+%bcond_with wayland
+
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
 Version:    0.1.1
@@ -35,7 +37,14 @@ cp %{SOURCE1001} .
 
 %build
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
+%if %{with wayland}
+-DWITH_WAYLAND=TRUE
+%endif
+%if %{with x}
+-DWITH_X11=TRUE
+%endif
+
 make %{?jobs:-j%jobs}
 
 %install

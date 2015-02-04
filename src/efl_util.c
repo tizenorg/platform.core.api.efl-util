@@ -18,13 +18,12 @@
 #define LOG_TAG "TIZEN_N_EFL_UTIL"
 
 #include <efl_util.h>
-#include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <Elementary.h>
 
-#if ECORE_X_FOUND
+#if X11
 #include <Ecore_X.h>
 #include <utilX.h>
 #endif
@@ -44,7 +43,7 @@ static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object 
 static Eina_Bool _efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
 static Eina_Bool _efl_util_notification_info_del(Evas_Object *window);
 
-#if ECORE_X_FOUND
+#if X11
 static unsigned int _noti_level_access_result_atom = 0;
 
 static Eina_Bool _efl_util_client_message(void *data, int type, void *event);
@@ -59,7 +58,7 @@ int efl_util_set_notification_window_level (Evas_Object* window, efl_util_notifi
 					level <= EFL_UTIL_NOTIFICATION_LEVEL_3,
 					EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-#if ECORE_X_FOUND
+#if X11
 	Ecore_X_Window xwin = elm_win_xwindow_get(window);
 	if (xwin)
 	{
@@ -104,7 +103,7 @@ int efl_util_get_notification_window_level (Evas_Object* window, efl_util_notifi
 	EINA_SAFETY_ON_NULL_RETURN_VAL(level,
 				       EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-#if ECORE_X_FOUND
+#if X11
 	Ecore_X_Window_Type window_type;
 	Utilx_Notification_Level utilx_level;
 	Ecore_X_Window xwin = elm_win_xwindow_get(window);
@@ -172,7 +171,7 @@ int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_uti
 	ret = _efl_util_notification_info_add(window, callback, user_data);
 	if (ret)
 	{
-#if ECORE_X_FOUND
+#if X11
 		if (!_noti_level_access_result_atom)
 			_noti_level_access_result_atom = ecore_x_atom_get("_E_NOTIFICATION_LEVEL_ACCESS_RESULT");
 
@@ -216,48 +215,7 @@ int efl_util_unset_notification_window_level_error_cb(Evas_Object *window)
 	return EFL_UTIL_ERROR_INVALID_PARAMETER;
 }
 
-int efl_util_grab_key (Evas_Object *obj, const char* key, int grab_mode)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-
-	return 0;
-}
-
-int efl_util_ungrab_key (Evas_Object *obj, const char* key)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-
-	return 0;
-}
-
-void efl_util_set_system_notification_level (Evas_Object *obj, Efl_Util_Notification_Level level)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-}
-
-Efl_Util_Notification_Level efl_util_get_system_notification_level (Evas_Object *obj)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-	return EFL_UTIL_NOTIFICATION_LEVEL_UNKNOWN;
-}
-
-void efl_util_netwm_window_type_set(Evas_Object *obj, Efl_Util_Window_Type type)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-}
-
-void efl_util_set_window_effect_style(Evas_Object *win, Efl_Util_Effect_Type type, Efl_Util_Effect_Style style)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-}
-
-int efl_util_set_window_opaque_state (Evas_Object *win, Efl_Util_Opaque_State state)
-{
-	fprintf (stderr, "%s deprecated\n", __FUNCTION__);
-	return 0;
-}
-
-#if ECORE_X_FOUND
+#if X11
 static Eina_Bool _efl_util_client_message(void *data, int type, void *event)
 {
 	Ecore_X_Event_Client_Message *ev;
