@@ -3,7 +3,7 @@
 
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in SLP C API
-Version:    0.1.1
+Version:    0.1.2
 Release:    1
 Group:      Graphics & UI Framework/API
 License:    Apache-2.0
