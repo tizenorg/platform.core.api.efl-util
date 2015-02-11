@@ -40,11 +40,11 @@ extern "C" {
  */
 typedef enum
 {
-	EFL_UTIL_ERROR_NONE = TIZEN_ERROR_NONE,	/**< Successful */
-	EFL_UTIL_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER, /**< Invalid parameter */
-	EFL_UTIL_ERROR_OUT_OF_MEMORY = TIZEN_ERROR_OUT_OF_MEMORY, /**< Out of memory */
-	EFL_UTIL_ERROR_PERMISSION_DENIED = TIZEN_ERROR_PERMISSION_DENIED, /**< Permisson denied */
-	EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01  /**< Window type not supported */
+   EFL_UTIL_ERROR_NONE = TIZEN_ERROR_NONE, /**< Successful */
+   EFL_UTIL_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER, /**< Invalid parameter */
+   EFL_UTIL_ERROR_OUT_OF_MEMORY = TIZEN_ERROR_OUT_OF_MEMORY, /**< Out of memory */
+   EFL_UTIL_ERROR_PERMISSION_DENIED = TIZEN_ERROR_PERMISSION_DENIED, /**< Permisson denied */
+   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01 /**< Window type not supported */
 } efl_util_error_e;
 
 /**
@@ -53,11 +53,10 @@ typedef enum
  */
 typedef enum
 {
-	EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level */
-	EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default */
-	EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level */
+   EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level */
+   EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default */
+   EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level */
 } efl_util_notification_level_e; 
-
 
 /**
  * @brief Sets the priority level for the specified notification window, asynchronously.
@@ -73,7 +72,7 @@ typedef enum
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE Window type not supported
  */
-int efl_util_set_notification_window_level (Evas_Object *window, efl_util_notification_level_e level);
+int efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level);
 
 
 /**
@@ -89,8 +88,7 @@ int efl_util_set_notification_window_level (Evas_Object *window, efl_util_notifi
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE Window type not supported
  */
-int efl_util_get_notification_window_level (Evas_Object *window, efl_util_notification_level_e* level);
-
+int efl_util_get_notification_window_level(Evas_Object *window, efl_util_notification_level_e *level);
 
 /**
  * @brief Called when an error occurs for setting notification window level
@@ -102,7 +100,6 @@ int efl_util_get_notification_window_level (Evas_Object *window, efl_util_notifi
  * @see efl_util_unset_notification_window_level_error_cb()
  */
 typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window, int error_code, void *user_data);
-
 
 /**
  * @brief Registers a callback function to be invoked when an error which set the notification level occurs.
@@ -121,7 +118,6 @@ typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window,
  */
 int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
 
-
 /**
  * @brief Unregisters the callback function.
  * @since_tizen 2.3
@@ -133,7 +129,6 @@ int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_uti
  * @see efl_util_set_notification_window_level_error_cb()
  */
 int efl_util_unset_notification_window_level_error_cb(Evas_Object *window);
-
 
 /**
  * @}
