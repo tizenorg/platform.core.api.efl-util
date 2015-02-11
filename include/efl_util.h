@@ -14,7 +14,6 @@
  * limitations under the License. 
  */
 
-
 #ifndef __TIZEN_UI_EFL_UTIL_H__
 #define __TIZEN_UI_EFL_UTIL_H__
 
@@ -40,11 +39,11 @@ extern "C" {
  */
 typedef enum
 {
-	EFL_UTIL_ERROR_NONE = TIZEN_ERROR_NONE,	/**< Successful */
-	EFL_UTIL_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER, /**< Invalid parameter */
-	EFL_UTIL_ERROR_OUT_OF_MEMORY = TIZEN_ERROR_OUT_OF_MEMORY, /**< Out of memory */
-	EFL_UTIL_ERROR_PERMISSION_DENIED = TIZEN_ERROR_PERMISSION_DENIED, /**< Permisson denied */
-	EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01  /**< Window type not supported */
+   EFL_UTIL_ERROR_NONE = TIZEN_ERROR_NONE, /**< Successful */
+   EFL_UTIL_ERROR_INVALID_PARAMETER = TIZEN_ERROR_INVALID_PARAMETER, /**< Invalid parameter */
+   EFL_UTIL_ERROR_OUT_OF_MEMORY = TIZEN_ERROR_OUT_OF_MEMORY, /**< Out of memory */
+   EFL_UTIL_ERROR_PERMISSION_DENIED = TIZEN_ERROR_PERMISSION_DENIED, /**< Permisson denied */
+   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE = TIZEN_ERROR_EFL_UTIL | 0x01 /**< Window type not supported */
 } efl_util_error_e;
 
 /**
@@ -53,11 +52,10 @@ typedef enum
  */
 typedef enum
 {
-	EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level */
-	EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default */
-	EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level */
+   EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level */
+   EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default */
+   EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level */
 } efl_util_notification_level_e; 
-
 
 /**
  * @brief Sets the priority level for the specified notification window, asynchronously.
@@ -67,13 +65,12 @@ typedef enum
  * @remarks This API can be used for a notification type window only.
  * @param[in] window The EFL window
  * @param[in] level The notification window level
- * @return @c 0 on success,
- *         otherwise a negative error value
+ * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE Window type not supported
  */
-int efl_util_set_notification_window_level (Evas_Object *window, efl_util_notification_level_e level);
+int efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level);
 
 
 /**
@@ -83,57 +80,50 @@ int efl_util_set_notification_window_level (Evas_Object *window, efl_util_notifi
  * @remarks This API can be used for a notification type window only.
  * @param[in] window The EFL window
  * @param[out] level The notification window level
- * @return @c 0 on success,
- *         otherwise a negative error value
+ * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE Window type not supported
  */
-int efl_util_get_notification_window_level (Evas_Object *window, efl_util_notification_level_e* level);
-
+int efl_util_get_notification_window_level(Evas_Object *window, efl_util_notification_level_e *level);
 
 /**
  * @brief Called when an error occurs for setting notification window level
  * @since_tizen 2.3
- * @param[in]	window	The EFL window
- * @param[in]	error_code	The error code (#EFL_UTIL_ERROR_PERMISSION_DENIED)
- * @param[in]	user_data	The user data passed from the callback registration function
+ * @param[in] window     The EFL window
+ * @param[in] error_code The error code (#EFL_UTIL_ERROR_PERMISSION_DENIED)
+ * @param[in] user_data  The user data passed from the callback registration function
  * @see efl_util_set_notification_window_level_error_cb()
  * @see efl_util_unset_notification_window_level_error_cb()
  */
 typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window, int error_code, void *user_data);
 
-
 /**
  * @brief Registers a callback function to be invoked when an error which set the notification level occurs.
  * @since_tizen 2.3
- * @param[in] window	The EFL window
- * @param[in] callback	The callback function to register
+ * @param[in] window    The EFL window
+ * @param[in] callback  The callback function to register
  * @param[in] user_data The user data to be passed to the callback function
- * @return @c 0 on success,
- *		   otherwise a negative error value
+ * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_OUT_OF_MEMORY Out of memory
- * @post  efl_util_notification_window_level_error_cb() will be invoked.
+ * @post efl_util_notification_window_level_error_cb() will be invoked.
  * @see efl_util_unset_notification_window_level_error_cb()
  * @see efl_util_notification_window_level_error_cb()
  */
 int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
 
-
 /**
  * @brief Unregisters the callback function.
  * @since_tizen 2.3
  * @param[in] window The EFL window
- * @return @c 0 on success,
- *		   otherwise a negative error value
+ * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @see efl_util_set_notification_window_level_error_cb()
  */
 int efl_util_unset_notification_window_level_error_cb(Evas_Object *window);
-
 
 /**
  * @}
@@ -142,4 +132,4 @@ int efl_util_unset_notification_window_level_error_cb(Evas_Object *window);
 #ifdef __cplusplus
 }
 #endif
-#endif				/* __TIZEN_UI_EFL_UTIL_H__ */
+#endif /* __TIZEN_UI_EFL_UTIL_H__ */
