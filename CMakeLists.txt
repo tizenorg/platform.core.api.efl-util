@@ -20,6 +20,7 @@ ENDIF (WITH_X11)
 
 IF (WITH_WAYLAND)
     ADD_DEFINITIONS("-DWAYLAND")
+    SET(dependents "${dependents} ecore-wayland wayland-client")
 ENDIF (WITH_WAYLAND)
 
 INCLUDE(FindPkgConfig)
