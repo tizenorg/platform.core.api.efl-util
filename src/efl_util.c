@@ -28,6 +28,12 @@
 #include <utilX.h>
 #endif
 
+#if WAYLAND
+#include <Ecore_Wayland.h>
+#include <wayland-client.h>
+#include "tizen_notification-client-protocol.h"
+#endif
+
 typedef struct _notification_error_cb_info
 {
    Evas_Object *window;
@@ -50,6 +56,120 @@ static Eina_Bool _efl_util_client_message(void *data, int type, void *event);
 static notification_error_cb_info *_notification_error_cb_info_find_by_xwin(unsigned int xwin);
 #endif
 
+#if WAYLAND
+typedef struct _Surface_Level
+{
+   struct wl_surface *surface;
+   uint32_t level;
+} Surface_Level;
+
+static void _cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned int name, const char *interface, unsigned int version);
+static void _cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name);
+static void _notification_set_level_done(void *data, struct tizen_notification *tizen_notification, struct wl_surface *surface, uint32_t level, uint32_t error_state);
+static notification_error_cb_info *_notification_error_cb_info_find_by_wl_surface(struct wl_surface *surface);
+
+static const struct wl_registry_listener _registry_listener =
+{
+   _cb_handle_registry_global,
+   _cb_handle_registry_global_remove
+};
+
+struct tizen_notification_listener _tizen_notification_listener =
+{
+   _notification_set_level_done,
+};
+
+static struct tizen_notification *_tizen_notification = NULL;
+static Eina_Bool _efl_util_init_done = EINA_FALSE;
+static Eina_Hash *hash_surface_levels = NULL;
+
+static void
+_cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned int name, const char *interface, unsigned int version)
+{
+   if (!strcmp(interface, "tizen_notification"))
+     {
+        _tizen_notification = wl_registry_bind(registry, name, &tizen_notification_interface, 1);
+        _efl_util_init_done = EINA_TRUE;
+        hash_surface_levels = eina_hash_pointer_new(free);
+     }
+}
+
+# define _FREE_FUNC(_h, _fn) do { if (_h) { _fn((void*)_h); _h = NULL; } } while (0)
+static void
+_cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name)
+{
+   _tizen_notification = NULL;
+   _efl_util_init_done = EINA_FALSE;
+   _FREE_FUNC(hash_surface_levels, eina_hash_free);
+   /* no-op */
+}
+
+static void
+_notification_set_level_done(void *data,
+                             struct tizen_notification *tizen_notification,
+                             struct wl_surface *surface,
+                             uint32_t level,
+                             uint32_t error_state)
+{
+   Surface_Level *sl;
+   notification_error_cb_info *cb_info = NULL;
+   efl_util_error_e error_cb_state = EFL_UTIL_ERROR_NONE;
+
+   cb_info = _notification_error_cb_info_find_by_wl_surface(surface);
+   if (cb_info)
+     {
+        switch (error_state)
+          {
+             case TIZEN_NOTIFICATION_ERROR_STATE_NONE:
+                error_cb_state = EFL_UTIL_ERROR_NONE;
+                break;
+             case TIZEN_NOTIFICATION_ERROR_STATE_INVALID_PARAMETER:
+                error_cb_state = EFL_UTIL_ERROR_INVALID_PARAMETER;
+                break;
+             case TIZEN_NOTIFICATION_ERROR_STATE_OUT_OF_MEMORY:
+                error_cb_state = EFL_UTIL_ERROR_OUT_OF_MEMORY;
+                break;
+             case TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED:
+                error_cb_state = EFL_UTIL_ERROR_PERMISSION_DENIED;
+                break;
+             case EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE:
+             default:
+                error_cb_state = TIZEN_NOTIFICATION_ERROR_STATE_NOT_SUPPORTED_WINDOW_TYPE;
+                break;
+          }
+        if (cb_info->err_cb)
+          cb_info->err_cb(cb_info->window, error_cb_state , cb_info->user_data);
+     }
+
+   if (!hash_surface_levels) return;
+   if (error_state == TIZEN_NOTIFICATION_ERROR_STATE_NONE)
+     {
+        sl = eina_hash_find(hash_surface_levels, &surface);
+        if (!sl)
+          {
+             sl = calloc(1, sizeof(Surface_Level));
+             if(!sl) return;
+
+             sl->surface = surface;
+             sl->level = level;
+             eina_hash_add(hash_surface_levels, &surface, sl);
+          }
+     }
+}
+
+static void
+_efl_util_wl_init(void)
+{
+   static Eina_Bool init = EINA_FALSE;
+   if (!init)
+     {
+        wl_registry_add_listener(ecore_wl_registry_get(), &_registry_listener, NULL);
+        init = EINA_TRUE;
+     }
+   while (!_efl_util_init_done)
+     wl_display_dispatch(ecore_wl_display_get());
+}
+#endif
 
 int
 efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level)
@@ -82,12 +202,16 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
      }
 #endif
 
-#if ECORE_WAYLAND_FOUND
-   Ecore_Wl_Window wl_win = elm_win_wl_window_get(window);
+#if WAYLAND
+   Ecore_Wl_Window *wl_win = elm_win_wl_window_get(window);
    if (wl_win)
      {
-        printf("not implemented for wayland yet\n");
-        return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+        _efl_util_wl_init();
+        //Add notification window type check
+        tizen_notification_set_level(_tizen_notification,
+                                     ecore_wl_window_surface_get(wl_win),
+                                     level);
+        return EFL_UTIL_ERROR_NONE;
      }
 #endif
 
@@ -146,12 +270,31 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
      }
 #endif
 
-#if ECORE_WAYLAND_FOUND
-   Ecore_Wl_Window wl_win = elm_win_wl_window_get(window);
+#if WAYLAND
+   Ecore_Wl_Window *wl_win = elm_win_wl_window_get(window);
    if (wl_win)
      {
-        printf("not implemented for wayland yet\n");
-        return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+        Surface_Level *sl;
+        struct wl_surface *surface = ecore_wl_window_surface_get(wl_win);
+        sl = eina_hash_find(hash_surface_levels, &surface);
+        if (sl)
+          {
+            switch (sl->level)
+              {
+                 case TIZEN_NOTIFICATION_LEVEL_1:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_2:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_3:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
+                   break;
+                 default:
+                   return EFL_UTIL_ERROR_INVALID_PARAMETER;
+              }
+            return EFL_UTIL_ERROR_NONE;
+          }
      }
 #endif
    return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
@@ -179,12 +322,10 @@ efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_no
         return EFL_UTIL_ERROR_NONE;
 #endif
 
-#if ECORE_WAYLAND_FOUND
-        printf("not implemented for wayland yet\n");
-        return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+#if WAYLAND
+        return EFL_UTIL_ERROR_NONE;
 #endif
      }
-
    return EFL_UTIL_ERROR_OUT_OF_MEMORY;
 }
 
@@ -258,6 +399,30 @@ _notification_error_cb_info_find_by_xwin(unsigned int xwin)
           {
              temp_xwin = elm_win_xwindow_get(temp->window);
              if (xwin == temp_xwin)
+               {
+                  return temp;
+               }
+          }
+     }
+
+   return NULL;
+}
+#endif
+
+#if WAYLAND
+static notification_error_cb_info *
+_notification_error_cb_info_find_by_wl_surface(struct wl_surface *surface)
+{
+   Eina_List *l;
+   notification_error_cb_info* temp;
+   struct wl_surface *temp_surface;
+
+   EINA_LIST_FOREACH(_g_notification_error_cb_info_list, l, temp)
+     {
+        if (temp->window)
+          {
+             temp_surface = ecore_wl_window_surface_get(elm_win_wl_window_get(temp->window));
+             if (surface == temp_surface)
                {
                   return temp;
                }
