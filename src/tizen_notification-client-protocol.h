@@ -22,6 +22,11 @@ enum tizen_notification_level {
 	TIZEN_NOTIFICATION_LEVEL_1 = 0,
 	TIZEN_NOTIFICATION_LEVEL_2 = 1,
 	TIZEN_NOTIFICATION_LEVEL_3 = 2,
+	TIZEN_NOTIFICATION_LEVEL_NONE = -1,
+	TIZEN_NOTIFICATION_LEVEL_DEFAULT = 10,
+	TIZEN_NOTIFICATION_LEVEL_MEDIUM = 20,
+	TIZEN_NOTIFICATION_LEVEL_HIGH = 30,
+	TIZEN_NOTIFICATION_LEVEL_TOP = 40,
 };
 #endif /* TIZEN_NOTIFICATION_LEVEL_ENUM */
 
@@ -29,10 +34,7 @@ enum tizen_notification_level {
 #define TIZEN_NOTIFICATION_ERROR_STATE_ENUM
 enum tizen_notification_error_state {
 	TIZEN_NOTIFICATION_ERROR_STATE_NONE = 0,
-	TIZEN_NOTIFICATION_ERROR_STATE_INVALID_PARAMETER = 1,
-	TIZEN_NOTIFICATION_ERROR_STATE_OUT_OF_MEMORY = 2,
-	TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED = 3,
-	TIZEN_NOTIFICATION_ERROR_STATE_NOT_SUPPORTED_WINDOW_TYPE = 4,
+	TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED = 1,
 };
 #endif /* TIZEN_NOTIFICATION_ERROR_STATE_ENUM */
 
@@ -46,7 +48,7 @@ struct tizen_notification_listener {
 	void (*done)(void *data,
 		     struct tizen_notification *tizen_notification,
 		     struct wl_surface *surface,
-		     uint32_t level,
+		     int32_t level,
 		     uint32_t error_state);
 };
 
@@ -79,7 +81,7 @@ tizen_notification_destroy(struct tizen_notification *tizen_notification)
 }
 
 static inline void
-tizen_notification_set_level(struct tizen_notification *tizen_notification, struct wl_surface *surface, uint32_t level)
+tizen_notification_set_level(struct tizen_notification *tizen_notification, struct wl_surface *surface, int32_t level)
 {
 	wl_proxy_marshal((struct wl_proxy *) tizen_notification,
 			 TIZEN_NOTIFICATION_SET_LEVEL, surface, level);

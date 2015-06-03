@@ -52,9 +52,14 @@ typedef enum
  */
 typedef enum
 {
-   EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level */
-   EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default */
-   EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level */
+   EFL_UTIL_NOTIFICATION_LEVEL_1, /**< Default notification level. (Deprecated since 2.4. Use EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT instead.) */
+   EFL_UTIL_NOTIFICATION_LEVEL_2, /**< Higher notification level than default. (Deprecated since 2.4. Use EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM instead.) */
+   EFL_UTIL_NOTIFICATION_LEVEL_3, /**< The highest notification level. (Deprecated since 2.4. Use EFL_UTIL_NOTIFICATION_LEVEL_TOP instead.) */
+   EFL_UTIL_NOTIFICATION_LEVEL_NONE    = -1, /**< No (reset) notification level. This value makes the window place in normal layer. (@b Since: 2.4) */
+   EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT = 10, /**< Default notification level. (@b Since: 2.4) */
+   EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM  = 20, /**< Higher notification level than default. (@b Since: 2.4) */
+   EFL_UTIL_NOTIFICATION_LEVEL_HIGH    = 30, /**< Higher notification level than medium. (@b Since: 2.4) */
+   EFL_UTIL_NOTIFICATION_LEVEL_TOP     = 40  /**< The highest notification level. (@b Since: 2.4) */
 } efl_util_notification_level_e; 
 
 /**

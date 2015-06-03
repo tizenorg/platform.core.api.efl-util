@@ -13,11 +13,11 @@ static const struct wl_interface *types[] = {
 };
 
 static const struct wl_message tizen_notification_requests[] = {
-	{ "set_level", "ou", types + 0 },
+	{ "set_level", "oi", types + 0 },
 };
 
 static const struct wl_message tizen_notification_events[] = {
-	{ "done", "ouu", types + 2 },
+	{ "done", "oiu", types + 2 },
 };
 
 WL_EXPORT const struct wl_interface tizen_notification_interface = {
