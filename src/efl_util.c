@@ -60,12 +60,13 @@ static notification_error_cb_info *_notification_error_cb_info_find_by_xwin(unsi
 typedef struct _Surface_Level
 {
    struct wl_surface *surface;
-   uint32_t level;
+   int32_t level;
+   Eina_Bool wait_set_level_done;
 } Surface_Level;
 
 static void _cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned int name, const char *interface, unsigned int version);
 static void _cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name);
-static void _notification_set_level_done(void *data, struct tizen_notification *tizen_notification, struct wl_surface *surface, uint32_t level, uint32_t error_state);
+static void _notification_set_level_done(void *data, struct tizen_notification *tizen_notification, struct wl_surface *surface, int32_t level, uint32_t error_state);
 static notification_error_cb_info *_notification_error_cb_info_find_by_wl_surface(struct wl_surface *surface);
 
 static const struct wl_registry_listener _registry_listener =
@@ -110,32 +111,20 @@ static void
 _notification_set_level_done(void *data,
                              struct tizen_notification *tizen_notification,
                              struct wl_surface *surface,
-                             uint32_t level,
+                             int32_t level,
                              uint32_t error_state)
 {
    Surface_Level *sl;
    notification_error_cb_info *cb_info = NULL;
    efl_util_error_e error_cb_state = EFL_UTIL_ERROR_NONE;
 
-   if (error_state == TIZEN_NOTIFICATION_ERROR_STATE_NONE)
+   if (hash_surface_levels)
      {
-        if (hash_surface_levels)
+        sl = eina_hash_find(hash_surface_levels, &surface);
+        if (sl)
           {
-             sl = eina_hash_find(hash_surface_levels, &surface);
-             if (!sl)
-               {
-                  sl = calloc(1, sizeof(Surface_Level));
-                  if (sl)
-                    {
-                       sl->surface = surface;
-                       sl->level = level;
-                       eina_hash_add(hash_surface_levels, &surface, sl);
-                    }
-               }
-             else
-               {
-                  sl->level = level;
-               }
+             sl->level = level;
+             sl->wait_set_level_done = EINA_FALSE;
           }
      }
 
@@ -147,18 +136,9 @@ _notification_set_level_done(void *data,
              case TIZEN_NOTIFICATION_ERROR_STATE_NONE:
                 error_cb_state = EFL_UTIL_ERROR_NONE;
                 break;
-             case TIZEN_NOTIFICATION_ERROR_STATE_INVALID_PARAMETER:
-                error_cb_state = EFL_UTIL_ERROR_INVALID_PARAMETER;
-                break;
-             case TIZEN_NOTIFICATION_ERROR_STATE_OUT_OF_MEMORY:
-                error_cb_state = EFL_UTIL_ERROR_OUT_OF_MEMORY;
-                break;
              case TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED:
-                error_cb_state = EFL_UTIL_ERROR_PERMISSION_DENIED;
-                break;
-             case EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE:
              default:
-                error_cb_state = TIZEN_NOTIFICATION_ERROR_STATE_NOT_SUPPORTED_WINDOW_TYPE;
+                error_cb_state = EFL_UTIL_ERROR_PERMISSION_DENIED;
                 break;
           }
         if (cb_info->err_cb)
@@ -217,6 +197,29 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
    if (wl_win)
      {
         _efl_util_wl_init();
+
+        if (hash_surface_levels)
+          {
+             Surface_Level *sl;
+             struct wl_surface *surface = ecore_wl_window_surface_get(wl_win);
+             sl = eina_hash_find(hash_surface_levels, &surface);
+             if (!sl)
+               {
+                  sl = calloc(1, sizeof(Surface_Level));
+                  if (sl)
+                    {
+                       sl->surface = surface;
+                       sl->level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+                       sl->wait_set_level_done = EINA_TRUE;
+                       eina_hash_add(hash_surface_levels, &surface, sl);
+                    }
+               }
+             else
+               {
+                  sl->wait_set_level_done = EINA_TRUE;
+               }
+          }
+
         //Add notification window type check
         tizen_notification_set_level(_tizen_notification,
                                      ecore_wl_window_surface_get(wl_win),
@@ -286,9 +289,28 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
      {
         Surface_Level *sl;
         struct wl_surface *surface = ecore_wl_window_surface_get(wl_win);
+
         sl = eina_hash_find(hash_surface_levels, &surface);
         if (sl)
           {
+            if (sl->wait_set_level_done)
+              {
+                  if (ecore_wl_window_shell_surface_get(wl_win) ||
+                      ecore_wl_window_xdg_surface_get(wl_win))
+                    {
+                       while (sl->wait_set_level_done)
+                         {
+                            ecore_wl_flush();
+                            wl_display_dispatch(ecore_wl_display_get());
+                         }
+                    }
+                  else
+                    {
+                       *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+                       return EFL_UTIL_ERROR_INVALID_PARAMETER;
+                    }
+              }
+
             switch (sl->level)
               {
                  case TIZEN_NOTIFICATION_LEVEL_1:
@@ -300,10 +322,29 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
                  case TIZEN_NOTIFICATION_LEVEL_3:
                    *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
                    break;
+                 case TIZEN_NOTIFICATION_LEVEL_NONE:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_NONE;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_DEFAULT:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_MEDIUM:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_HIGH:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_HIGH;
+                   break;
+                 case TIZEN_NOTIFICATION_LEVEL_TOP:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;
                  default:
+                   *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
                    return EFL_UTIL_ERROR_INVALID_PARAMETER;
               }
             return EFL_UTIL_ERROR_NONE;
+          }
+        else
+          {
+             *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
           }
      }
 #endif
