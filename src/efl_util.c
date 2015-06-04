@@ -336,6 +336,7 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
                    break;
                  case TIZEN_NOTIFICATION_LEVEL_TOP:
                    *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;
+                   break;
                  default:
                    *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
                    return EFL_UTIL_ERROR_INVALID_PARAMETER;
