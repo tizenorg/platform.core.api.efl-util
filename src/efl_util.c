@@ -194,6 +194,10 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
 
 #if WAYLAND
    Ecore_Wl_Window *wl_win = elm_win_wl_window_get(window);
+
+   if (elm_win_type_get(window) != ELM_WIN_NOTIFICATION)
+     return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+
    if (wl_win)
      {
         _efl_util_wl_init();
