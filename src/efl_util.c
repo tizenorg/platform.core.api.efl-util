@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2011-2015 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,8 @@
  * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License. 
+ * limitations under the License.
  */
-
 
 #define LOG_TAG "TIZEN_N_EFL_UTIL"
 
@@ -42,7 +41,7 @@ typedef struct _notification_error_cb_info
 } notification_error_cb_info;
 
 Eina_List *_g_notification_error_cb_info_list;
-static Ecore_Event_Handler* _noti_level_access_result_handler = NULL;
+static Ecore_Event_Handler *_noti_level_access_result_handler = NULL;
 static int _noti_handler_count = 0;
 
 static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object *window);
@@ -99,7 +98,9 @@ _cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned in
 
 # define _FREE_FUNC(_h, _fn) do { if (_h) { _fn((void*)_h); _h = NULL; } } while (0)
 static void
-_cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name)
+_cb_handle_registry_global_remove(void *data,
+                                  struct wl_registry *registry,
+                                  unsigned int name)
 {
    _tizen_notification = NULL;
    _efl_util_init_done = EINA_FALSE;
@@ -161,8 +162,9 @@ _efl_util_wl_init(void)
 }
 #endif
 
-int
-efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level)
+API int
+efl_util_set_notification_window_level(Evas_Object *window,
+                                       efl_util_notification_level_e level)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_FALSE_RETURN_VAL((level >= EFL_UTIL_NOTIFICATION_LEVEL_1) &&
@@ -174,10 +176,10 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
    if (xwin)
      {
         Ecore_X_Window_Type window_type;
-        if(ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
+        if (ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
           {
              // success to get window type
-             if(window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
+             if (window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
                {
                   // given EFL window's type is not notification type.
                   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
@@ -186,8 +188,7 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
         else
           return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 
-        utilx_set_system_notification_level(ecore_x_display_get(), xwin,
-                                            level);
+        utilx_set_system_notification_level(ecore_x_display_get(), xwin, level);
         return EFL_UTIL_ERROR_NONE;
      }
 #endif
@@ -231,10 +232,10 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
    return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 }
 
-int
-efl_util_get_notification_window_level(Evas_Object *window, efl_util_notification_level_e *level)
+API int
+efl_util_get_notification_window_level(Evas_Object *window,
+                                       efl_util_notification_level_e *level)
 {
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(level, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
@@ -244,40 +245,27 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
    Ecore_X_Window xwin = elm_win_xwindow_get(window);
    if (xwin)
      {
-        if(ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
+        if (ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
           {
              // success to get window type
-             if(window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
+             if (window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
                {
                   // given EFL window's type is not notification type.
                   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
                }
 
              utilx_level = utilx_get_system_notification_level (ecore_x_display_get(), xwin);
-
-             if(utilx_level == UTILX_NOTIFICATION_LEVEL_LOW)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
-               }
+             if (utilx_level == UTILX_NOTIFICATION_LEVEL_LOW)
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
              else if(utilx_level == UTILX_NOTIFICATION_LEVEL_NORMAL)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
-               }
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
              else if(utilx_level == UTILX_NOTIFICATION_LEVEL_HIGH)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
-               }
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
              else
-               {
-                  return EFL_UTIL_ERROR_INVALID_PARAMETER;
-               }
-
+               return EFL_UTIL_ERROR_INVALID_PARAMETER;
           }
         else
-          {
-             // fail to get window type
-             return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
-          }
+          return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 
         return EFL_UTIL_ERROR_NONE;
      }
@@ -352,8 +340,10 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
    return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 }
 
-int
-efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data)
+API int
+efl_util_set_notification_window_level_error_cb(Evas_Object *window,
+                                                efl_util_notification_window_level_error_cb callback,
+                                                void *user_data)
 {
    Eina_Bool ret = EINA_FALSE;
 
@@ -381,7 +371,7 @@ efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_no
    return EFL_UTIL_ERROR_OUT_OF_MEMORY;
 }
 
-int
+API int
 efl_util_unset_notification_window_level_error_cb(Evas_Object *window)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -503,7 +493,9 @@ _notification_error_cb_info_find(Evas_Object *window)
 }
 
 static Eina_Bool
-_efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data)
+_efl_util_notification_info_add(Evas_Object *window,
+                                efl_util_notification_window_level_error_cb callback,
+                                void *user_data)
 {
    notification_error_cb_info* _err_info = _notification_error_cb_info_find(window);
 
@@ -541,4 +533,127 @@ _efl_util_notification_info_del(Evas_Object *window)
    free(_err_info);
 
    return EINA_TRUE;
+}
+
+API int
+efl_util_set_window_opaque_state(Evas_Object *window,
+                                 int opaque)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(((opaque >= 0) && (opaque <= 1)),
+                                   EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+#if X11
+   Ecore_X_Window xwin = elm_win_xwindow_get(window);
+   Ecore_X_Display *xdpy = ecore_x_display_get();
+   Utilx_Opaque_State state;
+   int ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(xwin, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(xdpy, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   if (opaque)
+     state = UTILX_OPAQUE_STATE_ON;
+   else
+     state = UTILX_OPAQUE_STATE_OFF;
+
+   ret = utilx_set_window_opaque_state(xdpy, xwin, state);
+
+   if (!ret)
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+   else
+     return EFL_UTIL_ERROR_NONE;
+#endif
+
+#if WAYLAND
+   /* TODO */
+   return EFL_UTIL_ERROR_NONE;
+#endif
+}
+
+API int
+efl_util_set_window_screen_mode(Evas_Object *window,
+                                efl_util_screen_mode_e mode)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(((mode >= EFL_UTIL_SCREEN_MODE_DEFAULT) &&
+                                    (mode <= EFL_UTIL_SCREEN_MODE_ALWAYS_ON)),
+                                   EFL_UTIL_ERROR_INVALID_PARAMETER);
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_get_window_screen_mode(Evas_Object *window,
+                                efl_util_screen_mode_e *mode)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_set_window_screen_mode_error_cb(Evas_Object *window,
+                                         efl_util_window_screen_mode_error_cb callback,
+                                         void *user_data)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(callback, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API void
+efl_util_input_deinitialize_generator(void)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_input_generate_key(const char *key_name,
+                            int pressed)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_input_generate_touch(int idx,
+                              efl_util_input_touch_type_e touch_type,
+                              int x,
+                              int y)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API efl_util_screenshot_h
+efl_util_screenshot_initialize(int width,
+                               int height)
+{
+   return 0;
+}
+
+API tbm_surface_h
+efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
+{
+   return 0;
+}
+
+API int
+efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
+{
+   return EFL_UTIL_ERROR_NONE;
 }

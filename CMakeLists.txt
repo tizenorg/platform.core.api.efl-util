@@ -11,11 +11,11 @@ SET(INC_DIR include)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
 # required dependencies
-SET(dependents "dlog elementary capi-base-common")
+SET(dependents "dlog elementary capi-base-common libdrm libtbm")
 
 IF (WITH_X11)
     ADD_DEFINITIONS("-DX11")
-    SET(dependents "${dependents} ecore-x utilX")
+    SET(dependents "${dependents} ecore-x utilX x11 xv libdri2 xext xdamage xtst")
 ENDIF (WITH_X11)
 
 IF (WITH_WAYLAND)
@@ -77,10 +77,10 @@ IF(UNIX)
 
 ADD_CUSTOM_TARGET (distclean @echo cleaning for source distribution)
 ADD_CUSTOM_COMMAND(
-        DEPENDS clean 
+        DEPENDS clean
         COMMENT "distribution clean"
         COMMAND find
-        ARGS    . 
+        ARGS    .
         -not -name config.cmake -and \(
         -name tester.c -or
         -name Testing -or
