@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
+ * Copyright (c) 2011-2015 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,8 @@
  * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License. 
+ * limitations under the License.
  */
-
 
 #define LOG_TAG "TIZEN_N_EFL_UTIL"
 
@@ -22,147 +21,365 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Elementary.h>
+#include <Ecore_Evas.h>
 
 #if X11
 #include <Ecore_X.h>
 #include <utilX.h>
-#endif
+#endif /* end of X11 */
 
 #if WAYLAND
 #include <Ecore_Wayland.h>
 #include <wayland-client.h>
 #include "tizen_notification-client-protocol.h"
-#endif
+#endif /* end of WAYLAND */
 
-typedef struct _notification_error_cb_info
+/* callback handler index */
+#define CBH_NOTI_LEV 0
+#define CBH_SCR_MODE 1
+#define CBH_MAX      2
+
+typedef void (*Efl_Util_Cb)(Evas_Object *, int, void *);
+
+typedef struct _Efl_Util_Callback_Info
 {
-   Evas_Object *window;
-   efl_util_notification_window_level_error_cb err_cb;
-   void *user_data;
-} notification_error_cb_info;
+   Evas_Object *win;
+   Efl_Util_Cb cb;
+   void *data;
+} Efl_Util_Callback_Info;
 
-Eina_List *_g_notification_error_cb_info_list;
-static Ecore_Event_Handler* _noti_level_access_result_handler = NULL;
-static int _noti_handler_count = 0;
+typedef struct _Efl_Util_Wl_Surface_Lv_Info
+{
+   void *surface; /* wl_surface */
+   int level;
+   Eina_Bool wait_for_done;
+} Efl_Util_Wl_Surface_Lv_Info;
 
-static notification_error_cb_info *_notification_error_cb_info_find(Evas_Object *window);
-static Eina_Bool _efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
-static Eina_Bool _efl_util_notification_info_del(Evas_Object *window);
+typedef struct _Efl_Util_Data
+{
+   Ecore_Event_Handler *handler; /* x11 client message handler */
+   struct
+   {
+      Eina_List *info_list; /* list of callback info */
+      unsigned int atom; /* x11 atom */
+   } cb_handler[CBH_MAX];
+
+   /* wayland related stuffs */
+   struct
+   {
+      Eina_Bool init;
+      #if WAYLAND
+      struct wl_display *dpy;
+      struct
+      {
+         struct tizen_notification *proto;
+         Eina_Hash *hash;
+      } noti_lv;
+      #endif /* end of WAYLAND */
+   } wl;
+} Efl_Util_Data;
+
+static Efl_Util_Data _eflutil =
+{
+   NULL,
+   {
+      { NULL, 0 }, /* handler for notification level */
+      { NULL, 0 }  /* handler for screen mode */
+   },
+   {
+      EINA_FALSE,
+      #if WAYLAND
+      NULL,
+      { NULL, NULL } /* tizen_notification protocol */
+      #endif /* end of WAYLAND */
+   }
+};
+
+static Eina_Bool               _cb_info_add(Evas_Object *win, Efl_Util_Cb cb, void *data, int idx);
+static Eina_Bool               _cb_info_del_by_win(Evas_Object *win, int idx);
+static Eina_List              *_cb_info_list_get(int idx);
+static Efl_Util_Callback_Info *_cb_info_find_by_win(Evas_Object *win, int idx);
+#if X11
+static Efl_Util_Callback_Info *_cb_info_find_by_xwin(unsigned int xwin);
+static Eina_Bool               _cb_x11_client_msg(void *data, int type, void *event);
+#endif /* end of X11 */
+#if WAYLAND
+static Eina_Bool               _wl_init(void);
+static void                    _cb_wl_reg_global(void *data, struct wl_registry *reg, unsigned int name, const char *interface, unsigned int version);
+static void                    _cb_wl_reg_global_remove(void *data, struct wl_registry *reg, unsigned int name);
+static Efl_Util_Callback_Info *_cb_info_find_by_wlsurf(void *wlsurf, int idx);
+static void                    _cb_wl_tz_noti_lv_done(void *data, struct tizen_notification *proto, struct wl_surface *surface, int32_t level, uint32_t state);
+
+static const struct wl_registry_listener _wl_reg_listener =
+{
+   _cb_wl_reg_global,
+   _cb_wl_reg_global_remove
+};
+
+struct tizen_notification_listener _wl_tz_noti_lv_listener =
+{
+   _cb_wl_tz_noti_lv_done
+};
+#endif /* end of WAYLAND */
+
+static Eina_Bool
+_cb_info_add(Evas_Object *win,
+             Efl_Util_Cb cb,
+             void *data,
+             int idx)
+{
+   Efl_Util_Callback_Info *info;
+
+   info = _cb_info_find_by_win(win, idx);
+   if (info)
+     {
+        _eflutil.cb_handler[idx].info_list
+           = eina_list_remove(_eflutil.cb_handler[idx].info_list,
+                              info);
+        free(info);
+     }
+
+   info = (Efl_Util_Callback_Info *)calloc(1, sizeof(Efl_Util_Callback_Info));
+   if (!info) return EINA_FALSE;
+
+   info->win = win;
+   info->cb = cb;
+   info->data = data;
+
+   _eflutil.cb_handler[idx].info_list
+      = eina_list_append(_eflutil.cb_handler[idx].info_list,
+                         info);
 
 #if X11
-static unsigned int _noti_level_access_result_atom = 0;
+   if (!_eflutil.handler)
+     _eflutil.handler = ecore_event_handler_add(ECORE_X_EVENT_CLIENT_MESSAGE,
+                                                _cb_x11_client_msg,
+                                                NULL);
+#endif /* end of X11 */
 
-static Eina_Bool _efl_util_client_message(void *data, int type, void *event);
-static notification_error_cb_info *_notification_error_cb_info_find_by_xwin(unsigned int xwin);
-#endif
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_cb_info_del_by_win(Evas_Object *win,
+                    int idx)
+{
+   Efl_Util_Callback_Info *info;
+   unsigned int count;
+
+   info = _cb_info_find_by_win(win, idx);
+   if (!info) return EINA_FALSE;
+
+   _eflutil.cb_handler[idx].info_list
+      = eina_list_remove(_eflutil.cb_handler[idx].info_list,
+                         info);
+   free(info);
+
+   count = eina_list_count(_eflutil.cb_handler[idx].info_list);
+   if ((count == 0) && (_eflutil.handler))
+     {
+        ecore_event_handler_del(_eflutil.handler);
+        _eflutil.handler = NULL;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_List *
+_cb_info_list_get(int idx)
+{
+   return _eflutil.cb_handler[idx].info_list;
+}
+
+static Efl_Util_Callback_Info *
+_cb_info_find_by_win(Evas_Object *win,
+                     int idx)
+{
+   Eina_List *l, *ll;
+   Efl_Util_Callback_Info *info;
+
+   l = _cb_info_list_get(idx);
+   EINA_LIST_FOREACH(l, ll, info)
+     {
+        if (info->win == win) return info;
+     }
+
+   return NULL;
+}
+
+#if X11
+static Efl_Util_Callback_Info *
+_cb_info_find_by_xwin(unsigned int xwin,
+                      int idx)
+{
+   Eina_List *l, *ll;
+   Efl_Util_Callback_Info *info;
+   unsigned int xwin2;
+
+   l = _cb_info_list_get(idx);
+   EINA_LIST_FOREACH(l, ll, info)
+     {
+        xwin2 = elm_win_xwindow_get(info->win);
+        if (xwin == xwin2) return info;
+     }
+
+   return NULL;
+}
+
+static Eina_Bool
+_cb_x11_client_msg(void *data,
+                   int type,
+                   void *event)
+{
+   Ecore_X_Event_Client_Message *ev;
+   Ecore_X_Window xwin;
+   Efl_Util_Callback_Info *info;
+
+   ev = event;
+   if (!ev) return ECORE_CALLBACK_PASS_ON;
+
+   xwin = ev->win;
+   if (xwin == 0) return ECORE_CALLBACK_PASS_ON;
+
+   if (ev->message_type == _eflutil.atom.noti_lv)
+     {
+        info = _cb_info_find_by_xwin(xwin, CBH_NOTI_LEV);
+
+        /* permission denied */
+        if ((ev->data.l[1] == 0) &&
+            (info) &&
+            (info->cb))
+          {
+             info->cb(info->win,
+                      EFL_UTIL_ERROR_PERMISSION_DENIED,
+                      info->data);
+          }
+     }
+   else if (ev->message_type == _eflutil.atom.scr_mode)
+     {
+        info = _cb_info_find_by_xwin(xwin, CBH_SCR_MODE);
+
+        /* permission denied */
+        if ((ev->data.l[1] == 0) &&
+            (info) &&
+            (info->cb))
+          {
+             info->cb(info->win,
+                      EFL_UTIL_ERROR_PERMISSION_DENIED,
+                      info->data);
+          }
+     }
+   return ECORE_CALLBACK_PASS_ON;
+}
+#endif /* end of X11 */
 
 #if WAYLAND
-typedef struct _Surface_Level
+static Eina_Bool
+_wl_init(void)
 {
-   struct wl_surface *surface;
-   int32_t level;
-   Eina_Bool wait_set_level_done;
-} Surface_Level;
+   struct wl_registry *reg;
 
-static void _cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned int name, const char *interface, unsigned int version);
-static void _cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name);
-static void _notification_set_level_done(void *data, struct tizen_notification *tizen_notification, struct wl_surface *surface, int32_t level, uint32_t error_state);
-static notification_error_cb_info *_notification_error_cb_info_find_by_wl_surface(struct wl_surface *surface);
+   if (_eflutil.wl.init) return EINA_TRUE;
 
-static const struct wl_registry_listener _registry_listener =
-{
-   _cb_handle_registry_global,
-   _cb_handle_registry_global_remove
-};
+   _eflutil.wl.dpy = ecore_wl_display_get();
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.dpy, EINA_FALSE);
 
-struct tizen_notification_listener _tizen_notification_listener =
-{
-   _notification_set_level_done,
-};
+   reg = wl_display_get_registry(_eflutil.wl.dpy);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(reg, EINA_FALSE);
 
-static struct tizen_notification *_tizen_notification = NULL;
-static Eina_Bool _efl_util_init_done = EINA_FALSE;
-static Eina_Hash *hash_surface_levels = NULL;
+   wl_registry_add_listener(reg, &_wl_reg_listener, NULL);
+
+   _eflutil.wl.init = EINA_TRUE;
+
+   return EINA_TRUE;
+}
 
 static void
-_cb_handle_registry_global(void *data, struct wl_registry *registry, unsigned int name, const char *interface, unsigned int version)
+_cb_wl_reg_global(void *data,
+                  struct wl_registry *reg,
+                  unsigned int name,
+                  const char *interface,
+                  unsigned int version)
 {
    if (!strcmp(interface, "tizen_notification"))
      {
-        _tizen_notification = wl_registry_bind(registry, name, &tizen_notification_interface, 1);
-        if (!_tizen_notification) return;
-        tizen_notification_add_listener(_tizen_notification, &_tizen_notification_listener, NULL);
-        _efl_util_init_done = EINA_TRUE;
-        hash_surface_levels = eina_hash_pointer_new(free);
-     }
-}
+        struct tizen_notification *proto;
+        proto = wl_registry_bind(reg,
+                                 name,
+                                 &tizen_notification_interface,
+                                 1);
+        if (!proto) return;
 
-# define _FREE_FUNC(_h, _fn) do { if (_h) { _fn((void*)_h); _h = NULL; } } while (0)
-static void
-_cb_handle_registry_global_remove(void *data, struct wl_registry *registry, unsigned int name)
-{
-   _tizen_notification = NULL;
-   _efl_util_init_done = EINA_FALSE;
-   _FREE_FUNC(hash_surface_levels, eina_hash_free);
-   /* no-op */
-}
+        tizen_notification_add_listener(proto,
+                                        &_wl_tz_noti_lv_listener,
+                                        NULL);
 
-static void
-_notification_set_level_done(void *data,
-                             struct tizen_notification *tizen_notification,
-                             struct wl_surface *surface,
-                             int32_t level,
-                             uint32_t error_state)
-{
-   Surface_Level *sl;
-   notification_error_cb_info *cb_info = NULL;
-   efl_util_error_e error_cb_state = EFL_UTIL_ERROR_NONE;
-
-   if (hash_surface_levels)
-     {
-        sl = eina_hash_find(hash_surface_levels, &surface);
-        if (sl)
-          {
-             sl->level = level;
-             sl->wait_set_level_done = EINA_FALSE;
-          }
-     }
-
-   cb_info = _notification_error_cb_info_find_by_wl_surface(surface);
-   if (cb_info)
-     {
-        switch (error_state)
-          {
-             case TIZEN_NOTIFICATION_ERROR_STATE_NONE:
-                error_cb_state = EFL_UTIL_ERROR_NONE;
-                break;
-             case TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED:
-             default:
-                error_cb_state = EFL_UTIL_ERROR_PERMISSION_DENIED;
-                break;
-          }
-        if (cb_info->err_cb)
-          cb_info->err_cb(cb_info->window, error_cb_state , cb_info->user_data);
+        _eflutil.wl.noti_lv.hash = eina_hash_pointer_new(free);
+        _eflutil.wl.noti_lv.proto = proto;
      }
 }
 
 static void
-_efl_util_wl_init(void)
+_cb_wl_reg_global_remove(void *data,
+                         struct wl_registry *reg,
+                         unsigned int name)
 {
-   static Eina_Bool init = EINA_FALSE;
-   if (!init)
-     {
-        wl_registry_add_listener(wl_display_get_registry(ecore_wl_display_get()),
-                                 &_registry_listener, NULL);
-        init = EINA_TRUE;
-     }
-   while (!_efl_util_init_done)
-     wl_display_dispatch(ecore_wl_display_get());
+   _eflutil.wl.noti_lv.proto = NULL;
+   eina_hash_free(_eflutil.wl.noti_lv.hash);
 }
-#endif
 
-int
-efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level)
+static Efl_Util_Callback_Info *
+_cb_info_find_by_wlsurf(void *wlsurf,
+                        int idx)
+{
+   Eina_List *l, *ll;
+   Efl_Util_Callback_Info *info;
+   Ecore_Wl_Window *wlwin2 = NULL;
+   void *wlsurf2 = NULL;
+
+   l = _cb_info_list_get(idx);
+   EINA_LIST_FOREACH(l, ll, info)
+     {
+        wlwin2 = elm_win_wl_window_get(info->win);
+        wlsurf2 = ecore_wl_window_surface_get(wlwin2);
+        if (wlsurf== wlsurf2) return info;
+     }
+
+   return NULL;
+}
+
+static void
+_cb_wl_tz_noti_lv_done(void *data,
+                       struct tizen_notification *proto,
+                       struct wl_surface *surface,
+                       int32_t level,
+                       uint32_t state)
+{
+   Efl_Util_Wl_Surface_Lv_Info *lv_info;
+   Efl_Util_Callback_Info *cb_info;
+
+   lv_info = eina_hash_find(_eflutil.wl.noti_lv.hash, &surface);
+   if (lv_info)
+     {
+        lv_info->level = level;
+        lv_info->wait_for_done = EINA_FALSE;
+     }
+
+   if (state != TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED) return;
+
+   cb_info = _cb_info_find_by_wlsurf((void *)surface, CBH_NOTI_LEV);
+   if (!cb_info) return;
+   if (!cb_info->cb) return;
+
+   cb_info->cb(cb_info->win,
+               EFL_UTIL_ERROR_PERMISSION_DENIED,
+               cb_info->data);
+}
+#endif /* end of WAYLAND */
+
+API int
+efl_util_set_notification_window_level(Evas_Object *window,
+                                       efl_util_notification_level_e level)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_FALSE_RETURN_VAL((level >= EFL_UTIL_NOTIFICATION_LEVEL_1) &&
@@ -174,10 +391,10 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
    if (xwin)
      {
         Ecore_X_Window_Type window_type;
-        if(ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
+        if (ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
           {
              // success to get window type
-             if(window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
+             if (window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
                {
                   // given EFL window's type is not notification type.
                   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
@@ -186,55 +403,68 @@ efl_util_set_notification_window_level(Evas_Object *window, efl_util_notificatio
         else
           return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 
-        utilx_set_system_notification_level(ecore_x_display_get(), xwin,
-                                            level);
+        utilx_set_system_notification_level(ecore_x_display_get(), xwin, level);
         return EFL_UTIL_ERROR_NONE;
      }
-#endif
+#endif /* end of X11 */
 
 #if WAYLAND
-   Ecore_Wl_Window *wl_win = elm_win_wl_window_get(window);
-   if (wl_win)
-     {
-        _efl_util_wl_init();
+   Elm_Win_Type type;
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Lv_Info *lv_info;
 
-        if (hash_surface_levels)
+   type = elm_win_type_get(window);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
+                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   wlwin = elm_win_wl_window_get(window);
+   if (wlwin)
+     {
+        _wl_init();
+
+        while (!_eflutil.wl.noti_lv.proto)
+          wl_display_dispatch(_eflutil.wl.dpy);
+
+        surface = ecore_wl_window_surface_get(wlwin);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                       EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+        lv_info = eina_hash_find(_eflutil.wl.noti_lv.hash, &surface);
+        if (!lv_info)
           {
-             Surface_Level *sl;
-             struct wl_surface *surface = ecore_wl_window_surface_get(wl_win);
-             sl = eina_hash_find(hash_surface_levels, &surface);
-             if (!sl)
-               {
-                  sl = calloc(1, sizeof(Surface_Level));
-                  if (sl)
-                    {
-                       sl->surface = surface;
-                       sl->level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
-                       sl->wait_set_level_done = EINA_TRUE;
-                       eina_hash_add(hash_surface_levels, &surface, sl);
-                    }
-               }
-             else
-               {
-                  sl->wait_set_level_done = EINA_TRUE;
-               }
+             lv_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Lv_Info));
+             EINA_SAFETY_ON_NULL_RETURN_VAL(lv_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
+
+             lv_info->surface = surface;
+             lv_info->level = (int)level;
+             lv_info->wait_for_done = EINA_TRUE;
+
+             eina_hash_add(_eflutil.wl.noti_lv.hash,
+                           &surface,
+                           lv_info);
+          }
+        else
+          {
+             lv_info->level = (int)level;
+             lv_info->wait_for_done = EINA_TRUE;
           }
 
-        //Add notification window type check
-        tizen_notification_set_level(_tizen_notification,
-                                     ecore_wl_window_surface_get(wl_win),
-                                     level);
+        tizen_notification_set_level(_eflutil.wl.noti_lv.proto,
+                                     surface,
+                                     (int)level);
+
         return EFL_UTIL_ERROR_NONE;
      }
-#endif
+#endif /* end of WAYLAND */
 
    return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 }
 
-int
-efl_util_get_notification_window_level(Evas_Object *window, efl_util_notification_level_e *level)
+API int
+efl_util_get_notification_window_level(Evas_Object *window,
+                                       efl_util_notification_level_e *level)
 {
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(level, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
@@ -244,64 +474,66 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
    Ecore_X_Window xwin = elm_win_xwindow_get(window);
    if (xwin)
      {
-        if(ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
+        if (ecore_x_netwm_window_type_get(xwin, &window_type) == EINA_TRUE)
           {
              // success to get window type
-             if(window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
+             if (window_type != ECORE_X_WINDOW_TYPE_NOTIFICATION)
                {
                   // given EFL window's type is not notification type.
                   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
                }
 
-             utilx_level = utilx_get_system_notification_level (ecore_x_display_get(), xwin);
-
-             if(utilx_level == UTILX_NOTIFICATION_LEVEL_LOW)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
-               }
+             utilx_level = utilx_get_system_notification_level(ecore_x_display_get(), xwin);
+             if (utilx_level == UTILX_NOTIFICATION_LEVEL_LOW)
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
              else if(utilx_level == UTILX_NOTIFICATION_LEVEL_NORMAL)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
-               }
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
              else if(utilx_level == UTILX_NOTIFICATION_LEVEL_HIGH)
-               {
-                  *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
-               }
+               *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
              else
-               {
-                  return EFL_UTIL_ERROR_INVALID_PARAMETER;
-               }
-
+               return EFL_UTIL_ERROR_INVALID_PARAMETER;
           }
         else
-          {
-             // fail to get window type
-             return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
-          }
+          return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 
         return EFL_UTIL_ERROR_NONE;
      }
-#endif
+#endif /* end of X11 */
 
 #if WAYLAND
-   Ecore_Wl_Window *wl_win = elm_win_wl_window_get(window);
-   if (wl_win)
-     {
-        Surface_Level *sl;
-        struct wl_surface *surface = ecore_wl_window_surface_get(wl_win);
+   Elm_Win_Type type;
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Lv_Info *lv_info;
 
-        sl = eina_hash_find(hash_surface_levels, &surface);
-        if (sl)
+   type = elm_win_type_get(window);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
+                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   wlwin = elm_win_wl_window_get(window);
+   if (wlwin)
+     {
+        _wl_init();
+
+        while (!_eflutil.wl.noti_lv.proto)
+          wl_display_dispatch(_eflutil.wl.dpy);
+
+        surface = ecore_wl_window_surface_get(wlwin);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                       EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+        lv_info = eina_hash_find(_eflutil.wl.noti_lv.hash, &surface);
+        if (lv_info)
           {
-            if (sl->wait_set_level_done)
-              {
-                  if (ecore_wl_window_shell_surface_get(wl_win) ||
-                      ecore_wl_window_xdg_surface_get(wl_win))
+             if (lv_info->wait_for_done)
+               {
+                  if (ecore_wl_window_shell_surface_get(wlwin) ||
+                      ecore_wl_window_xdg_surface_get(wlwin))
                     {
-                       while (sl->wait_set_level_done)
+                       while (lv_info->wait_for_done)
                          {
                             ecore_wl_flush();
-                            wl_display_dispatch(ecore_wl_display_get());
+                            wl_display_dispatch(_eflutil.wl.dpy);
                          }
                     }
                   else
@@ -309,236 +541,257 @@ efl_util_get_notification_window_level(Evas_Object *window, efl_util_notificatio
                        *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
                        return EFL_UTIL_ERROR_INVALID_PARAMETER;
                     }
-              }
+               }
 
-            switch (sl->level)
+            switch (lv_info->level)
               {
-                 case TIZEN_NOTIFICATION_LEVEL_1:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_1;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_2:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_2;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_3:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_3;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_NONE:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_NONE;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_DEFAULT:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_MEDIUM:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_HIGH:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_HIGH;
-                   break;
-                 case TIZEN_NOTIFICATION_LEVEL_TOP:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;
-                   break;
-                 default:
-                   *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+                 case TIZEN_NOTIFICATION_LEVEL_1:       *level = EFL_UTIL_NOTIFICATION_LEVEL_1;       break;
+                 case TIZEN_NOTIFICATION_LEVEL_2:       *level = EFL_UTIL_NOTIFICATION_LEVEL_2;       break;
+                 case TIZEN_NOTIFICATION_LEVEL_3:       *level = EFL_UTIL_NOTIFICATION_LEVEL_3;       break;
+                 case TIZEN_NOTIFICATION_LEVEL_NONE:    *level = EFL_UTIL_NOTIFICATION_LEVEL_NONE;    break;
+                 case TIZEN_NOTIFICATION_LEVEL_DEFAULT: *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT; break;
+                 case TIZEN_NOTIFICATION_LEVEL_MEDIUM:  *level = EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM;  break;
+                 case TIZEN_NOTIFICATION_LEVEL_HIGH:    *level = EFL_UTIL_NOTIFICATION_LEVEL_HIGH;    break;
+                 case TIZEN_NOTIFICATION_LEVEL_TOP:     *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;     break;
+                 default:                               *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
                    return EFL_UTIL_ERROR_INVALID_PARAMETER;
               }
             return EFL_UTIL_ERROR_NONE;
           }
         else
-          {
-             *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
-          }
+          *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+
+        return EFL_UTIL_ERROR_NONE;
      }
-#endif
+#endif /* end of WAYLAND */
    return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 }
 
-int
-efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data)
+API int
+efl_util_set_notification_window_level_error_cb(Evas_Object *window,
+                                                efl_util_notification_window_level_error_cb callback,
+                                                void *user_data)
 {
    Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(callback, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   ret = _efl_util_notification_info_add(window, callback, user_data);
-   if (ret)
-     {
+   ret = _cb_info_add(window,
+                      (Efl_Util_Cb)callback,
+                      user_data,
+                      CBH_NOTI_LEV);
+   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+
 #if X11
-        if (!_noti_level_access_result_atom)
-          _noti_level_access_result_atom = ecore_x_atom_get("_E_NOTIFICATION_LEVEL_ACCESS_RESULT");
+   if (!_eflutil.atom.noti_lv)
+     _eflutil.atom.noti_lv = ecore_x_atom_get("_E_NOTIFICATION_LEVEL_ACCESS_RESULT");
+#endif /* end of X11 */
 
-        if (!_noti_level_access_result_handler)
-          _noti_level_access_result_handler = ecore_event_handler_add(ECORE_X_EVENT_CLIENT_MESSAGE, _efl_util_client_message, NULL);
-        _noti_handler_count++;
-
-        return EFL_UTIL_ERROR_NONE;
-#endif
-
-#if WAYLAND
-        return EFL_UTIL_ERROR_NONE;
-#endif
-     }
-   return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+   return EFL_UTIL_ERROR_NONE;
 }
 
-int
+API int
 efl_util_unset_notification_window_level_error_cb(Evas_Object *window)
 {
    Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   ret = _efl_util_notification_info_del(window);
-   if (ret)
-     {
-        _noti_handler_count--;
-        if (_noti_handler_count == 0)
-          {
-             if (_noti_level_access_result_handler)
-               {
-                  ecore_event_handler_del(_noti_level_access_result_handler);
-                  _noti_level_access_result_handler = NULL;
-               }
-          }
-        return EFL_UTIL_ERROR_NONE;
-     }
+   ret = _cb_info_del_by_win(window, CBH_NOTI_LEV);
+   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
 
-   return EFL_UTIL_ERROR_INVALID_PARAMETER;
+   return EFL_UTIL_ERROR_NONE;
 }
+
+API int
+efl_util_set_window_opaque_state(Evas_Object *window,
+                                 int opaque)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(((opaque >= 0) && (opaque <= 1)),
+                                   EFL_UTIL_ERROR_INVALID_PARAMETER);
 
 #if X11
-static Eina_Bool
-_efl_util_client_message(void *data, int type, void *event)
-{
-   Ecore_X_Event_Client_Message *ev;
+   Ecore_X_Window xwin = elm_win_xwindow_get(window);
+   Ecore_X_Display *xdpy = ecore_x_display_get();
+   Utilx_Opaque_State state;
+   int ret;
 
-   ev = event;
-   if (!ev) return ECORE_CALLBACK_PASS_ON;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(xwin, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(xdpy, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   if (ev->message_type == _noti_level_access_result_atom)
-     {
-        Ecore_X_Window xwin;
-        xwin = ev->win;
+   if (opaque)
+     state = UTILX_OPAQUE_STATE_ON;
+   else
+     state = UTILX_OPAQUE_STATE_OFF;
 
-        notification_error_cb_info *cb_info = NULL;
-        cb_info = _notification_error_cb_info_find_by_xwin(xwin);
-        if (cb_info)
-          {
-             int access = ev->data.l[1];
-             if (access == 0) // permission denied
-               {
-                  if (cb_info->err_cb)
-                    {
-                       cb_info->err_cb(cb_info->window, EFL_UTIL_ERROR_PERMISSION_DENIED, cb_info->user_data);
-                    }
-               }
-          }
-     }
+   ret = utilx_set_window_opaque_state(xdpy, xwin, state);
 
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static notification_error_cb_info *
-_notification_error_cb_info_find_by_xwin(unsigned int xwin)
-{
-   Eina_List *l;
-   notification_error_cb_info* temp;
-   unsigned int temp_xwin;
-
-   EINA_LIST_FOREACH(_g_notification_error_cb_info_list, l, temp)
-     {
-        if (temp->window)
-          {
-             temp_xwin = elm_win_xwindow_get(temp->window);
-             if (xwin == temp_xwin)
-               {
-                  return temp;
-               }
-          }
-     }
-
-   return NULL;
-}
-#endif
+   if (!ret)
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+   else
+     return EFL_UTIL_ERROR_NONE;
+#endif /* end of X11 */
 
 #if WAYLAND
-static notification_error_cb_info *
-_notification_error_cb_info_find_by_wl_surface(struct wl_surface *surface)
-{
-   Eina_List *l;
-   notification_error_cb_info* temp;
-   struct wl_surface *temp_surface;
-
-   EINA_LIST_FOREACH(_g_notification_error_cb_info_list, l, temp)
-     {
-        if (temp->window)
-          {
-             temp_surface = ecore_wl_window_surface_get(elm_win_wl_window_get(temp->window));
-             if (surface == temp_surface)
-               {
-                  return temp;
-               }
-          }
-     }
-
-   return NULL;
-}
-#endif
-
-static notification_error_cb_info *
-_notification_error_cb_info_find(Evas_Object *window)
-{
-   Eina_List *l;
-   notification_error_cb_info* temp;
-
-   EINA_LIST_FOREACH(_g_notification_error_cb_info_list, l, temp)
-     {
-        if (temp->window == window)
-          {
-             return temp;
-          }
-     }
-
-   return NULL;
+   /* TODO */
+   return EFL_UTIL_ERROR_NONE;
+#endif /* end of WAYLAND */
 }
 
-static Eina_Bool
-_efl_util_notification_info_add(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data)
+API int
+efl_util_set_window_screen_mode(Evas_Object *window,
+                                efl_util_screen_mode_e mode)
 {
-   notification_error_cb_info* _err_info = _notification_error_cb_info_find(window);
+   Evas *e;
+   Ecore_Evas *ee;
+   int id;
 
-   if (_err_info)
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(((mode >= EFL_UTIL_SCREEN_MODE_DEFAULT) &&
+                                    (mode <= EFL_UTIL_SCREEN_MODE_ALWAYS_ON)),
+                                   EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   e = evas_object_evas_get(window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   ee = ecore_evas_ecore_evas_get(e);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ee, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   id = ecore_evas_aux_hint_id_get(ee, "wm.policy.win.lcd.lock");
+   if (mode == EFL_UTIL_SCREEN_MODE_ALWAYS_ON)
      {
-        _g_notification_error_cb_info_list = eina_list_remove(_g_notification_error_cb_info_list, _err_info);
-        free(_err_info);
-        _err_info = NULL;
+        if (id == -1)
+          ecore_evas_aux_hint_add(ee, "wm.policy.win.lcd.lock", "1");
+        else
+          ecore_evas_aux_hint_val_set(ee, id, "1");
      }
-
-   _err_info = (notification_error_cb_info*)calloc(1, sizeof(notification_error_cb_info));
-   if (!_err_info)
+   else if (mode == EFL_UTIL_SCREEN_MODE_DEFAULT)
      {
-        return EINA_FALSE;
+        if (id == -1)
+          ecore_evas_aux_hint_add(ee, "wm.policy.win.lcd.lock", "0");
+        else
+          ecore_evas_aux_hint_val_set(ee, id, "0");
      }
-   _err_info->window = window;
-   _err_info->err_cb = callback;
-   _err_info->user_data = user_data;
+   else
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
 
-   _g_notification_error_cb_info_list = eina_list_append(_g_notification_error_cb_info_list, _err_info);
-
-   return EINA_TRUE;
+   return EFL_UTIL_ERROR_NONE;
 }
 
-static Eina_Bool
-_efl_util_notification_info_del(Evas_Object *window)
+API int
+efl_util_get_window_screen_mode(Evas_Object *window,
+                                efl_util_screen_mode_e *mode)
 {
-   notification_error_cb_info* _err_info = _notification_error_cb_info_find(window);
-   if (!_err_info)
-     {
-        return EINA_FALSE;
-     }
+   Evas *e;
+   Ecore_Evas *ee;
+   const char *str;
+   int id;
 
-   _g_notification_error_cb_info_list = eina_list_remove(_g_notification_error_cb_info_list, _err_info);
-   free(_err_info);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   return EINA_TRUE;
+   e = evas_object_evas_get(window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   ee = ecore_evas_ecore_evas_get(e);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ee, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   id = ecore_evas_aux_hint_id_get(ee, "wm.policy.win.lcd.lock");
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((id == -1), EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   str = ecore_evas_aux_hint_val_get(ee, id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   if (strncmp(str, "1", strlen("1")) == 0)
+     *mode = EFL_UTIL_SCREEN_MODE_ALWAYS_ON;
+   else
+     *mode = EFL_UTIL_SCREEN_MODE_DEFAULT;
+
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_set_window_screen_mode_error_cb(Evas_Object *window,
+                                         efl_util_window_screen_mode_error_cb callback,
+                                         void *user_data)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(callback, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   ret = _cb_info_add(window,
+                      (Efl_Util_Cb)callback,
+                      user_data,
+                      CBH_SCR_MODE);
+   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+
+#if X11
+   if (!_eflutil.atom.scr_mode)
+     _eflutil.atom.scr_mode = ecore_x_atom_get("_E_SCREEN_MODE_ACCESS_RESULT");
+#endif /* end of X11 */
+
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   ret = _cb_info_del_by_win(window, CBH_SCR_MODE);
+   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API void
+efl_util_input_deinitialize_generator(void)
+{
+   return;
+}
+
+API int
+efl_util_input_generate_key(const char *key_name,
+                            int pressed)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API int
+efl_util_input_generate_touch(int idx,
+                              efl_util_input_touch_type_e touch_type,
+                              int x,
+                              int y)
+{
+   return EFL_UTIL_ERROR_NONE;
+}
+
+API efl_util_screenshot_h
+efl_util_screenshot_initialize(int width,
+                               int height)
+{
+   return 0;
+}
+
+API tbm_surface_h
+efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
+{
+   return 0;
+}
+
+API int
+efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
+{
+   return EFL_UTIL_ERROR_NONE;
 }

@@ -2,7 +2,7 @@
 %bcond_with wayland
 
 Name:       capi-ui-efl-util
-Summary:    An EFL utility library in SLP C API
+Summary:    An EFL utility library in Tizen C API
 Version:    0.1.2
 Release:    1
 Group:      Graphics & UI Framework/API
@@ -15,16 +15,28 @@ BuildRequires:  pkgconfig(dlog)
 BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(utilX)
 BuildRequires:  pkgconfig(ecore-x)
+BuildRequires:  pkgconfig(xtst)
+BuildRequires:  pkgconfig(libdri2)
+BuildRequires:  pkgconfig(dri2proto)
+BuildRequires:  pkgconfig(xext)
+BuildRequires:  pkgconfig(xv)
+BuildRequires:  pkgconfig(xdamage)
+%endif
+%if %{with wayland}
+BuildRequires:  pkgconfig(wayland-client)
+BuildRequires:  pkgconfig(ecore-wayland)
 %endif
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
+BuildRequires:  pkgconfig(libdrm)
+BuildRequires:  pkgconfig(libtbm)
 
 %description
 An EFL utility library in SLP C API.
 
 
 %package devel
-Summary:  An EFL utility library in SLP C API (Development)
+Summary:  An EFL utility library in Tizen C API (Development)
 Requires: %{name} = %{version}-%{release}
 
 %description devel
