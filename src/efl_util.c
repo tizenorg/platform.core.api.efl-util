@@ -32,6 +32,7 @@
 #include <Ecore_Wayland.h>
 #include <wayland-client.h>
 #include "tizen_notification-client-protocol.h"
+#include "tizen_window_screen-client-protocol.h"
 #endif /* end of WAYLAND */
 
 /* callback handler index */
@@ -55,6 +56,13 @@ typedef struct _Efl_Util_Wl_Surface_Lv_Info
    Eina_Bool wait_for_done;
 } Efl_Util_Wl_Surface_Lv_Info;
 
+typedef struct _Efl_Util_Wl_Surface_Scr_Mode_Info
+{
+   void *surface; /* wl_surface */
+   unsigned int mode;
+   Eina_Bool wait_for_done;
+} Efl_Util_Wl_Surface_Scr_Mode_Info;
+
 typedef struct _Efl_Util_Data
 {
    Ecore_Event_Handler *handler; /* x11 client message handler */
@@ -75,6 +83,11 @@ typedef struct _Efl_Util_Data
          struct tizen_notification *proto;
          Eina_Hash *hash;
       } noti_lv;
+      struct
+      {
+         struct tizen_window_screen *proto;
+         Eina_Hash *hash;
+      } win_scr_mode;
       #endif /* end of WAYLAND */
    } wl;
 } Efl_Util_Data;
@@ -90,7 +103,8 @@ static Efl_Util_Data _eflutil =
       EINA_FALSE,
       #if WAYLAND
       NULL,
-      { NULL, NULL } /* tizen_notification protocol */
+      { NULL, NULL }, /* tizen_notification protocol */
+      { NULL, NULL }  /* tizen_window_screen protocol */
       #endif /* end of WAYLAND */
    }
 };
@@ -109,6 +123,7 @@ static void                    _cb_wl_reg_global(void *data, struct wl_registry 
 static void                    _cb_wl_reg_global_remove(void *data, struct wl_registry *reg, unsigned int name);
 static Efl_Util_Callback_Info *_cb_info_find_by_wlsurf(void *wlsurf, int idx);
 static void                    _cb_wl_tz_noti_lv_done(void *data, struct tizen_notification *proto, struct wl_surface *surface, int32_t level, uint32_t state);
+static void                    _cb_wl_tz_win_scr_mode_done(void *data, struct tizen_window_screen *proto, struct wl_surface *surface, uint32_t mode, uint32_t state);
 
 static const struct wl_registry_listener _wl_reg_listener =
 {
@@ -119,6 +134,11 @@ static const struct wl_registry_listener _wl_reg_listener =
 struct tizen_notification_listener _wl_tz_noti_lv_listener =
 {
    _cb_wl_tz_noti_lv_done
+};
+
+struct tizen_window_screen_listener _wl_tz_win_scr_mode_listener =
+{
+   _cb_wl_tz_win_scr_mode_done
 };
 #endif /* end of WAYLAND */
 
@@ -317,6 +337,22 @@ _cb_wl_reg_global(void *data,
         _eflutil.wl.noti_lv.hash = eina_hash_pointer_new(free);
         _eflutil.wl.noti_lv.proto = proto;
      }
+   else if (!strcmp(interface, "tizen_window_screen"))
+     {
+        struct tizen_window_screen *proto;
+        proto = wl_registry_bind(reg,
+                                 name,
+                                 &tizen_window_screen_interface,
+                                 1);
+        if (!proto) return;
+
+        tizen_window_screen_add_listener(proto,
+                                         &_wl_tz_win_scr_mode_listener,
+                                         NULL);
+
+        _eflutil.wl.win_scr_mode.hash = eina_hash_pointer_new(free);
+        _eflutil.wl.win_scr_mode.proto = proto;
+     }
 }
 
 static void
@@ -326,6 +362,8 @@ _cb_wl_reg_global_remove(void *data,
 {
    _eflutil.wl.noti_lv.proto = NULL;
    eina_hash_free(_eflutil.wl.noti_lv.hash);
+   _eflutil.wl.win_scr_mode.proto = NULL;
+   eina_hash_free(_eflutil.wl.win_scr_mode.hash);
 }
 
 static Efl_Util_Callback_Info *
@@ -368,6 +406,35 @@ _cb_wl_tz_noti_lv_done(void *data,
    if (state != TIZEN_NOTIFICATION_ERROR_STATE_PERMISSION_DENIED) return;
 
    cb_info = _cb_info_find_by_wlsurf((void *)surface, CBH_NOTI_LEV);
+   if (!cb_info) return;
+   if (!cb_info->cb) return;
+
+   cb_info->cb(cb_info->win,
+               EFL_UTIL_ERROR_PERMISSION_DENIED,
+               cb_info->data);
+}
+
+static void
+_cb_wl_tz_win_scr_mode_done(void *data,
+                          struct tizen_window_screen *proto,
+                          struct wl_surface *surface,
+                          uint32_t mode,
+                          uint32_t state)
+{
+
+   Efl_Util_Wl_Surface_Scr_Mode_Info *scr_mode_info;
+   Efl_Util_Callback_Info *cb_info;
+
+   scr_mode_info = eina_hash_find(_eflutil.wl.win_scr_mode.hash, &surface);
+   if (scr_mode_info)
+     {
+        scr_mode_info->mode = mode;
+        scr_mode_info->wait_for_done = EINA_FALSE;
+     }
+
+   if (state != TIZEN_WINDOW_SCREEN_ERROR_STATE_PERMISSION_DENIED) return;
+
+   cb_info = _cb_info_find_by_wlsurf((void *)surface, CBH_SCR_MODE);
    if (!cb_info) return;
    if (!cb_info->cb) return;
 
@@ -599,7 +666,7 @@ efl_util_unset_notification_window_level_error_cb(Evas_Object *window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    ret = _cb_info_del_by_win(window, CBH_NOTI_LEV);
-   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+   if (!ret) return EFL_UTIL_ERROR_INVALID_PARAMETER;
 
    return EFL_UTIL_ERROR_NONE;
 }
@@ -661,14 +728,15 @@ API int
 efl_util_set_window_screen_mode(Evas_Object *window,
                                 efl_util_screen_mode_e mode)
 {
-   Evas *e;
-   Ecore_Evas *ee;
-   int id;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(((mode >= EFL_UTIL_SCREEN_MODE_DEFAULT) &&
                                     (mode <= EFL_UTIL_SCREEN_MODE_ALWAYS_ON)),
                                    EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+#if X11
+   Evas *e;
+   Ecore_Evas *ee;
+   int id;
 
    e = evas_object_evas_get(window);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e, EFL_UTIL_ERROR_INVALID_PARAMETER);
@@ -695,19 +763,68 @@ efl_util_set_window_screen_mode(Evas_Object *window,
      return EFL_UTIL_ERROR_INVALID_PARAMETER;
 
    return EFL_UTIL_ERROR_NONE;
+#endif /* end of X11 */
+
+#if WAYLAND
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Scr_Mode_Info *scr_mode_info;
+
+   wlwin = elm_win_wl_window_get(window);
+   if (wlwin)
+     {
+        _wl_init();
+
+        while (!_eflutil.wl.win_scr_mode.proto)
+          wl_display_dispatch(_eflutil.wl.dpy);
+
+        surface = ecore_wl_window_surface_get(wlwin);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                       EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+        scr_mode_info = eina_hash_find(_eflutil.wl.win_scr_mode.hash, &surface);
+        if (!scr_mode_info)
+          {
+             scr_mode_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Scr_Mode_Info));
+             EINA_SAFETY_ON_NULL_RETURN_VAL(scr_mode_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
+
+             scr_mode_info->surface = surface;
+             scr_mode_info->mode = (unsigned int)mode;
+             scr_mode_info->wait_for_done = EINA_TRUE;
+
+             eina_hash_add(_eflutil.wl.win_scr_mode.hash,
+                           &surface,
+                           scr_mode_info);
+          }
+        else
+          {
+             scr_mode_info->mode = (unsigned int)mode;
+             scr_mode_info->wait_for_done = EINA_TRUE;
+          }
+
+        tizen_window_screen_set_mode(_eflutil.wl.win_scr_mode.proto,
+                                     surface,
+                                     (unsigned int)mode);
+
+        return EFL_UTIL_ERROR_NONE;
+     }
+   else
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+#endif /* end of WAYLAND */
 }
 
 API int
 efl_util_get_window_screen_mode(Evas_Object *window,
                                 efl_util_screen_mode_e *mode)
 {
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+#if X11
    Evas *e;
    Ecore_Evas *ee;
    const char *str;
    int id;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    e = evas_object_evas_get(window);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e, EFL_UTIL_ERROR_INVALID_PARAMETER);
@@ -727,6 +844,55 @@ efl_util_get_window_screen_mode(Evas_Object *window,
      *mode = EFL_UTIL_SCREEN_MODE_DEFAULT;
 
    return EFL_UTIL_ERROR_NONE;
+#endif /* end of X11 */
+
+#if WAYLAND
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Scr_Mode_Info *scr_mode_info;
+
+   wlwin = elm_win_wl_window_get(window);
+   if (wlwin)
+     {
+        _wl_init();
+
+        while (!_eflutil.wl.win_scr_mode.proto)
+          wl_display_dispatch(_eflutil.wl.dpy);
+
+        surface = ecore_wl_window_surface_get(wlwin);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                       EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+        scr_mode_info = eina_hash_find(_eflutil.wl.win_scr_mode.hash, &surface);
+        if (scr_mode_info)
+          {
+             if (scr_mode_info->wait_for_done)
+               {
+                  while (scr_mode_info->wait_for_done)
+                    {
+                       ecore_wl_flush();
+                       wl_display_dispatch(_eflutil.wl.dpy);
+                    }
+               }
+
+            switch (scr_mode_info->mode)
+              {
+                 case TIZEN_WINDOW_SCREEN_MODE_DEFAULT:   *mode = EFL_UTIL_SCREEN_MODE_DEFAULT;   break;
+                 case TIZEN_WINDOW_SCREEN_MODE_ALWAYS_ON: *mode = EFL_UTIL_SCREEN_MODE_ALWAYS_ON; break;
+                 default:                                 *mode = EFL_UTIL_SCREEN_MODE_DEFAULT;
+                   return EFL_UTIL_ERROR_INVALID_PARAMETER;
+              }
+            return EFL_UTIL_ERROR_NONE;
+          }
+        else
+          {
+             *mode = EFL_UTIL_SCREEN_MODE_DEFAULT;
+             return EFL_UTIL_ERROR_INVALID_PARAMETER;
+          }
+     }
+   else
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+#endif /* end of WAYLAND */
 }
 
 API int
@@ -761,7 +927,7 @@ efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    ret = _cb_info_del_by_win(window, CBH_SCR_MODE);
-   if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+   if (!ret) return EFL_UTIL_ERROR_INVALID_PARAMETER;
 
    return EFL_UTIL_ERROR_NONE;
 }
