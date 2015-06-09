@@ -20,10 +20,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <xf86drm.h>
+#include <tbm_bufmgr.h>
+#include <tbm_surface.h>
+#include <tbm_surface_internal.h>
 #include <Elementary.h>
 #include <Ecore_Evas.h>
 
 #if X11
+#include <X11/Xlib.h>
+#include <X11/extensions/Xvlib.h>
+#include <X11/extensions/Xvproto.h>
+#include <X11/extensions/Xdamage.h>
+#include <dri2.h>
 #include <Ecore_X.h>
 #include <utilX.h>
 #endif /* end of X11 */
@@ -33,6 +46,8 @@
 #include <wayland-client.h>
 #include "tizen_notification-client-protocol.h"
 #include "tizen_window_screen-client-protocol.h"
+#include "tizen-buffer-pool-client-protocol.h"
+#include "screenshooter-client-protocol.h"
 #endif /* end of WAYLAND */
 
 /* callback handler index */
@@ -49,6 +64,7 @@ typedef struct _Efl_Util_Callback_Info
    void *data;
 } Efl_Util_Callback_Info;
 
+#if WAYLAND
 typedef struct _Efl_Util_Wl_Surface_Lv_Info
 {
    void *surface; /* wl_surface */
@@ -62,6 +78,13 @@ typedef struct _Efl_Util_Wl_Surface_Scr_Mode_Info
    unsigned int mode;
    Eina_Bool wait_for_done;
 } Efl_Util_Wl_Surface_Scr_Mode_Info;
+
+typedef struct _Efl_Util_Wl_Output_Info
+{
+    struct wl_output *output;
+    int offset_x, offset_y, width, height;
+} Efl_Util_Wl_Output_Info;
+#endif
 
 typedef struct _Efl_Util_Data
 {
@@ -97,6 +120,12 @@ typedef struct _Efl_Util_Data
          struct tizen_window_screen *proto;
          Eina_Hash *hash;
       } scr_mode;
+      struct
+      {
+         struct screenshooter *screenshooter;
+         struct tizen_buffer_pool *buffer_pool;
+         Eina_List *output_list;
+      } shot;
       #endif /* end of WAYLAND */
    } wl;
 } Efl_Util_Data;
@@ -119,7 +148,8 @@ static Efl_Util_Data _eflutil =
       #if WAYLAND
       NULL,
       { NULL, NULL }, /* tizen_notification protocol */
-      { NULL, NULL }  /* tizen_window_screen protocol */
+      { NULL, NULL },  /* tizen_window_screen protocol */
+      { NULL, NULL, NULL }  /* screenshooter protocol */
       #endif /* end of WAYLAND */
    }
 };
@@ -330,6 +360,8 @@ _wl_init(void)
 
    if (_eflutil.wl.init) return EINA_TRUE;
 
+   ecore_wl_init(NULL);
+
    _eflutil.wl.dpy = ecore_wl_display_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.dpy, EINA_FALSE);
 
@@ -342,6 +374,62 @@ _wl_init(void)
 
    return EINA_TRUE;
 }
+
+static void
+_cb_wl_output_geometry(void *data, struct wl_output *wl_output, int x, int y,
+                       int physical_width, int physical_height, int subpixel,
+                       const char *make, const char *model, int transform)
+{
+   Efl_Util_Wl_Output_Info *output = wl_output_get_user_data(wl_output);
+   if (wl_output == output->output)
+     {
+        output->offset_x = x;
+        output->offset_y = y;
+     }
+}
+
+static void
+_cb_wl_output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
+                   int width, int height, int refresh)
+{
+   Efl_Util_Wl_Output_Info *output = wl_output_get_user_data(wl_output);
+   if (wl_output == output->output && (flags & WL_OUTPUT_MODE_CURRENT))
+     {
+        output->width = width;
+        output->height = height;
+     }
+}
+
+static void
+_cb_wl_output_done(void *data, struct wl_output *wl_output)
+{
+}
+
+static void
+_cb_wl_output_scale(void *data, struct wl_output *wl_output, int32_t factor)
+{
+}
+
+static const struct wl_output_listener output_listener =
+{
+    _cb_wl_output_geometry,
+    _cb_wl_output_mode,
+    _cb_wl_output_done,
+    _cb_wl_output_scale
+};
+
+static void
+_cb_wl_screenshot_done(void *data, struct screenshooter *screenshooter)
+{
+   Eina_Bool *shot_done = (Eina_Bool*)data;
+   if (shot_done)
+     *shot_done = EINA_TRUE;
+}
+
+static const struct screenshooter_listener screenshooter_listener =
+{
+    _cb_wl_screenshot_done
+};
 
 static void
 _cb_wl_reg_global(void *data,
@@ -381,6 +469,25 @@ _cb_wl_reg_global(void *data,
 
         _eflutil.wl.scr_mode.hash = eina_hash_pointer_new(free);
         _eflutil.wl.scr_mode.proto = proto;
+     }
+   else if (strcmp(interface, "wl_output") == 0)
+     {
+        Efl_Util_Wl_Output_Info *output = calloc(1, sizeof(Efl_Util_Wl_Output_Info));
+        EINA_SAFETY_ON_NULL_RETURN(output);
+
+        _eflutil.wl.shot.output_list = eina_list_append(_eflutil.wl.shot.output_list, output);
+
+        output->output = wl_registry_bind(reg, name, &wl_output_interface, version);
+        wl_output_add_listener(output->output, &output_listener, output);
+     }
+   else if (strcmp(interface, "tizen_buffer_pool") == 0)
+     {
+        _eflutil.wl.shot.buffer_pool = wl_registry_bind(reg, name, &tizen_buffer_pool_interface, 1);
+     }
+   else if (strcmp(interface, "screenshooter") == 0)
+     {
+        _eflutil.wl.shot.screenshooter = wl_registry_bind(reg, name, &screenshooter_interface, version);
+        screenshooter_add_listener(_eflutil.wl.shot.screenshooter, &screenshooter_listener, NULL);
      }
 }
 
@@ -1018,21 +1125,622 @@ efl_util_input_generate_touch(int idx,
    return EFL_UTIL_ERROR_NONE;
 }
 
-API efl_util_screenshot_h
-efl_util_screenshot_initialize(int width,
-                               int height)
+struct _efl_util_screenshot_h
 {
+   int width;
+   int height;
+
+#if X11
+   Ecore_X_Display *dpy;
+   int internal_display;
+   int screen;
+   Window root;
+   Pixmap pixmap;
+   GC gc;
+   Atom atom_capture;
+
+   /* port */
+   int port;
+
+   /* damage */
+   Damage   damage;
+   int      damage_base;
+
+   /* dri2 */
+   int eventBase, errorBase;
+   int dri2Major, dri2Minor;
+   char *driver_name, *device_name;
+   drm_magic_t magic;
+
+   /* drm */
+   int drm_fd;
+#endif
+
+   Eina_Bool shot_done;
+
+   /* tbm bufmgr */
+   tbm_bufmgr bufmgr;
+};
+
+/* scrrenshot handle */
+static efl_util_screenshot_h g_screenshot;
+
+#if X11
+#define FOURCC(a,b,c,d) (((unsigned)d&0xff)<<24 | ((unsigned)c&0xff)<<16 | ((unsigned)b&0xff)<<8 | ((unsigned)a&0xff))
+#define FOURCC_RGB32    FOURCC('R','G','B','4')
+#define TIMEOUT_CAPTURE 3
+
+/* x error handling */
+static Bool g_efl_util_x_error_caught;
+
+static int
+_efl_util_screenshot_x_error_handle(Display *dpy, XErrorEvent *ev)
+{
+   if (!g_screenshot || (dpy != g_screenshot->dpy))
+     return 0;
+
+   g_efl_util_x_error_caught = True;
+
    return 0;
 }
 
-API tbm_surface_h
-efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
+static int
+_efl_util_screenshot_get_port(Display *dpy, unsigned int id, Window win)
 {
-   return 0;
+   unsigned int ver, rev, req_base, evt_base, err_base;
+   unsigned int adaptors;
+   XvAdaptorInfo *ai = NULL;
+   XvImageFormatValues *fo = NULL;
+   int formats;
+   int i, j, p;
+
+   if (XvQueryExtension(dpy, &ver, &rev, &req_base, &evt_base, &err_base) != Success)
+     {
+        fprintf(stderr, "[screenshot] fail: no XV extension. \n");
+        return -1;
+     }
+
+   if (XvQueryAdaptors(dpy, win, &adaptors, &ai) != Success)
+     {
+        fprintf(stderr, "[screenshot] fail: query adaptors. \n");
+        return -1;
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ai, -1);
+
+   for (i = 0; i < adaptors; i++)
+     {
+        int support_format = False;
+
+        if (!(ai[i].type & XvInputMask) ||
+            !(ai[i].type & XvStillMask))
+          continue;
+
+        p = ai[i].base_id;
+
+        fo = XvListImageFormats(dpy, p, &formats);
+        for (j = 0; j < formats; j++)
+          if (fo[j].id == (int)id)
+            support_format = True;
+
+        if (fo)
+          XFree(fo);
+
+        if (!support_format)
+          continue;
+
+        for (; p < ai[i].base_id + ai[i].num_ports; p++)
+          {
+             if (XvGrabPort(dpy, p, 0) == Success)
+               {
+                  XvFreeAdaptorInfo(ai);
+                  return p;
+               }
+          }
+     }
+
+   XvFreeAdaptorInfo(ai);
+
+   XSync(dpy, False);
+
+   return -1;
 }
 
-API int
-efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
+static int _efl_util_screenshot_get_best_size(Display *dpy, int port, int width, int height, unsigned int *best_width, unsigned int *best_height)
 {
+   XErrorHandler old_handler = NULL;
+
+   Atom atom_capture = XInternAtom(dpy, "_USER_WM_PORT_ATTRIBUTE_CAPTURE", False);
+
+   g_efl_util_x_error_caught = False;
+   old_handler = XSetErrorHandler(_efl_util_screenshot_x_error_handle);
+
+   XvSetPortAttribute(dpy, port, atom_capture, 1);
+   XSync(dpy, False);
+
+   g_efl_util_x_error_caught = False;
+   XSetErrorHandler(old_handler);
+
+   XvQueryBestSize(dpy, port, 0, 0, 0, width, height, best_width, best_height);
+   if (best_width <= 0 || best_height <= 0)
+     return 0;
+
+   return 1;
+}
+#endif
+
+API efl_util_screenshot_h efl_util_screenshot_initialize(int width, int height)
+{
+#if X11
+   efl_util_screenshot_h screenshot = NULL;
+   int depth = 0;
+   int damage_err_base = 0;
+   unsigned int best_width = 0;
+   unsigned int best_height = 0;
+
+   EINA_SAFETY_ON_FALSE_GOTO(width > 0, fail_param);
+   EINA_SAFETY_ON_FALSE_GOTO(height > 0, fail_param);
+
+   if (g_screenshot != NULL)
+     {
+        if (g_screenshot->width != width || g_screenshot->height != height)
+          {
+             // TODO: recreate pixmap and update information
+             if (!_efl_util_screenshot_get_best_size(screenshot->dpy, screenshot->port, width, height, &best_width, &best_height))
+               {
+                  set_last_result(EFL_UTIL_ERROR_SCREENSHOT_INIT_FAIL);
+                  return NULL;
+               }
+
+             g_screenshot->width = width;
+             g_screenshot->height = height;
+          }
+
+        return g_screenshot;
+     }
+
+   screenshot = calloc(1, sizeof(struct _efl_util_screenshot_h));
+   EINA_SAFETY_ON_NULL_GOTO(screenshot, fail_memory);
+
+   /* set dpy */
+   screenshot->dpy = ecore_x_display_get();
+   if (!screenshot->dpy)
+     {
+        screenshot->dpy = XOpenDisplay(0);
+        EINA_SAFETY_ON_NULL_GOTO(screenshot, fail_init);
+
+        /* for XCloseDisplay at denitialization */
+        screenshot->internal_display = 1;
+     }
+
+   /* set screen */
+   screenshot->screen = DefaultScreen(screenshot->dpy);
+
+   /* set root window */
+   screenshot->root = DefaultRootWindow(screenshot->dpy);
+
+   /* initialize capture adaptor */
+   screenshot->port = _efl_util_screenshot_get_port(screenshot->dpy, FOURCC_RGB32, screenshot->root);
+   EINA_SAFETY_ON_FALSE_GOTO(screenshot->port > 0, fail_init);
+
+   /* get the best size */
+   _efl_util_screenshot_get_best_size(screenshot->dpy, screenshot->port, width, height, &best_width, &best_height);
+   EINA_SAFETY_ON_FALSE_GOTO(best_width > 0, fail_init);
+   EINA_SAFETY_ON_FALSE_GOTO(best_height > 0, fail_init);
+
+   /* set the width and the height */
+   screenshot->width = best_width;
+   screenshot->height = best_height;
+
+   /* create a pixmap */
+   depth = DefaultDepth(screenshot->dpy, screenshot->screen);
+   screenshot->pixmap = XCreatePixmap(screenshot->dpy, screenshot->root, screenshot->width, screenshot->height, depth);
+   EINA_SAFETY_ON_FALSE_GOTO(screenshot->pixmap > 0, fail_init);
+
+   screenshot->gc = XCreateGC(screenshot->dpy, screenshot->pixmap, 0, 0);
+   EINA_SAFETY_ON_NULL_GOTO(screenshot->gc, fail_init);
+
+   XSetForeground(screenshot->dpy, screenshot->gc, 0xFF000000);
+   XFillRectangle(screenshot->dpy, screenshot->pixmap, screenshot->gc, 0, 0, width, height);
+
+   /* initialize damage */
+   if (!XDamageQueryExtension(screenshot->dpy, &screenshot->damage_base, &damage_err_base))
+     goto fail_init;
+
+   screenshot->damage = XDamageCreate(screenshot->dpy, screenshot->pixmap, XDamageReportNonEmpty);
+   EINA_SAFETY_ON_FALSE_GOTO(screenshot->damage > 0, fail_init);
+
+   /* initialize dri3 and dri2 */
+   if (!DRI2QueryExtension(screenshot->dpy, &screenshot->eventBase, &screenshot->errorBase))
+     {
+        fprintf(stderr, "[screenshot] fail: DRI2QueryExtention\n");
+        goto fail_init;
+     }
+
+   if (!DRI2QueryVersion(screenshot->dpy, &screenshot->dri2Major, &screenshot->dri2Minor))
+     {
+        fprintf(stderr, "[screenshot] fail: DRI2QueryVersion\n");
+        goto fail_init;
+     }
+
+   if (!DRI2Connect(screenshot->dpy, screenshot->root, &screenshot->driver_name, &screenshot->device_name))
+     {
+        fprintf(stderr, "[screenshot] fail: DRI2Connect\n");
+        goto fail_init;
+     }
+
+   screenshot->drm_fd = open(screenshot->device_name, O_RDWR);
+   EINA_SAFETY_ON_FALSE_GOTO(screenshot->drm_fd >= 0, fail_init);
+
+   if (drmGetMagic(screenshot->drm_fd, &screenshot->magic))
+     {
+        fprintf(stderr, "[screenshot] fail: drmGetMagic\n");
+        goto fail_init;
+     }
+
+   if (!DRI2Authenticate(screenshot->dpy, screenshot->root, screenshot->magic))
+     {
+        fprintf(stderr, "[screenshot] fail: DRI2Authenticate\n");
+        goto fail_init;
+     }
+
+   if (!drmAuthMagic(screenshot->drm_fd, screenshot->magic))
+     {
+        fprintf(stderr, "[screenshot] fail: drmAuthMagic\n");
+        goto fail_init;
+     }
+
+   DRI2CreateDrawable(screenshot->dpy, screenshot->pixmap);
+
+   /* tbm bufmgr */
+   screenshot->bufmgr = tbm_bufmgr_init(screenshot->drm_fd);
+   EINA_SAFETY_ON_NULL_GOTO(screenshot->bufmgr, fail_init);
+
+   XFlush(screenshot->dpy);
+
+   g_screenshot = screenshot;
+   set_last_result(EFL_UTIL_ERROR_NONE);
+
+   return g_screenshot;
+#endif
+
+#if WAYLAND
+   efl_util_screenshot_h screenshot = NULL;
+
+   if (!_eflutil.wl.shot.screenshooter)
+     {
+        int ret = 0;
+        _wl_init();
+        while (!_eflutil.wl.shot.screenshooter && ret != -1)
+          ret = wl_display_dispatch(_eflutil.wl.dpy);
+        EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.screenshooter, fail_init);
+        EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.buffer_pool, fail_init);
+     }
+
+   EINA_SAFETY_ON_FALSE_GOTO(width > 0, fail_param);
+   EINA_SAFETY_ON_FALSE_GOTO(height > 0, fail_param);
+
+   if (g_screenshot)
+     {
+        if (g_screenshot->width != width || g_screenshot->height != height)
+          {
+             g_screenshot->width = width;
+             g_screenshot->height = height;
+          }
+
+        return g_screenshot;
+     }
+
+   screenshot = calloc(1, sizeof(struct _efl_util_screenshot_h));
+   EINA_SAFETY_ON_NULL_GOTO(screenshot, fail_memory);
+
+   screenshot->width = width;
+   screenshot->height = height;
+
+   screenshot->bufmgr = tbm_bufmgr_init(-1);
+   EINA_SAFETY_ON_NULL_GOTO(screenshot->bufmgr, fail_init);
+
+   g_screenshot = screenshot;
+   set_last_result(EFL_UTIL_ERROR_NONE);
+
+   screenshooter_set_user_data(_eflutil.wl.shot.screenshooter, &screenshot->shot_done);
+
+   return g_screenshot;
+#endif
+fail_param:
+   if (screenshot)
+     efl_util_screenshot_deinitialize(screenshot);
+   set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
+   return NULL;
+fail_memory:
+   if (screenshot)
+     efl_util_screenshot_deinitialize(screenshot);
+   set_last_result(EFL_UTIL_ERROR_OUT_OF_MEMORY);
+   return NULL;
+fail_init:
+   if (screenshot)
+     efl_util_screenshot_deinitialize(screenshot);
+   set_last_result(EFL_UTIL_ERROR_SCREENSHOT_INIT_FAIL);
+   return NULL;
+}
+
+API int efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
+{
+#if X11
+   if (!screenshot)
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+
+   /* tbm bufmgr */
+   if (screenshot->bufmgr)
+     tbm_bufmgr_deinit(screenshot->bufmgr);
+
+   DRI2DestroyDrawable(screenshot->dpy, screenshot->pixmap);
+
+   /* dri2 */
+   if (screenshot->drm_fd)
+     close(screenshot->drm_fd);
+   if (screenshot->driver_name)
+     free(screenshot->driver_name);
+   if (screenshot->device_name)
+     free(screenshot->device_name);
+
+   /* xv */
+   if (screenshot->port > 0 && screenshot->pixmap > 0)
+     XvStopVideo(screenshot->dpy, screenshot->port, screenshot->pixmap);
+
+   /* damage */
+   if (screenshot->damage)
+     XDamageDestroy(screenshot->dpy, screenshot->damage);
+
+   /* gc */
+   if (screenshot->gc)
+     XFreeGC(screenshot->dpy, screenshot->gc);
+
+   /* pixmap */
+   if (screenshot->pixmap > 0)
+     XFreePixmap(screenshot->dpy, screenshot->pixmap);
+
+   /* port */
+   if (screenshot->port > 0)
+     XvUngrabPort(screenshot->dpy, screenshot->port, 0);
+
+   XSync(screenshot->dpy, False);
+
+   /* dpy */
+   if (screenshot->internal_display ==1 && screenshot->dpy)
+     XCloseDisplay(screenshot->dpy);
+
+   free(screenshot);
+   g_screenshot = NULL;
+
    return EFL_UTIL_ERROR_NONE;
+#endif
+#if WAYLAND
+   if (!screenshot)
+     return EFL_UTIL_ERROR_NONE;
+
+   if (screenshot->bufmgr)
+     tbm_bufmgr_deinit(screenshot->bufmgr);
+
+   free(screenshot);
+   g_screenshot = NULL;
+
+   if (_eflutil.wl.shot.screenshooter)
+     screenshooter_set_user_data(_eflutil.wl.shot.screenshooter, NULL);
+
+   return EFL_UTIL_ERROR_NONE;
+#endif
+}
+
+
+API tbm_surface_h efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
+{
+#if X11
+   XEvent ev = {0,};
+   XErrorHandler old_handler = NULL;
+   unsigned int attachment = DRI2BufferFrontLeft;
+   int nbufs = 0;
+   DRI2Buffer *bufs = NULL;
+   tbm_bo t_bo = NULL;
+   tbm_surface_h t_surface = NULL;
+   int buf_width = 0;
+   int buf_height = 0;
+   tbm_surface_info_s surf_info;
+   int i;
+
+   if (screenshot != g_screenshot)
+     {
+        set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
+        return NULL;
+     }
+
+   /* for flush other pending requests and pending events */
+   XSync(screenshot->dpy, 0);
+
+   g_efl_util_x_error_caught = False;
+   old_handler = XSetErrorHandler(_efl_util_screenshot_x_error_handle);
+
+   /* dump here */
+   XvPutStill(screenshot->dpy, screenshot->port, screenshot->pixmap, screenshot->gc,
+              0, 0, screenshot->width, screenshot->height,
+              0, 0, screenshot->width, screenshot->height);
+
+   XSync(screenshot->dpy, 0);
+
+   if (g_efl_util_x_error_caught)
+     {
+        g_efl_util_x_error_caught = False;
+        XSetErrorHandler(old_handler);
+        goto fail;
+     }
+
+   g_efl_util_x_error_caught = False;
+   XSetErrorHandler(old_handler);
+
+   if (XPending(screenshot->dpy))
+     XNextEvent(screenshot->dpy, &ev);
+   else
+     {
+        int fd = ConnectionNumber(screenshot->dpy);
+        fd_set mask;
+        struct timeval tv;
+        int ret;
+
+        FD_ZERO(&mask);
+        FD_SET(fd, &mask);
+
+        tv.tv_usec = 0;
+        tv.tv_sec = TIMEOUT_CAPTURE;
+
+        ret = select(fd + 1, &mask, 0, 0, &tv);
+        if (ret < 0)
+          fprintf(stderr, "[screenshot] fail: select.\n");
+        else if (ret == 0)
+          fprintf(stderr, "[screenshot] fail: timeout(%d sec)!\n", TIMEOUT_CAPTURE);
+        else if (XPending(screenshot->dpy))
+          XNextEvent(screenshot->dpy, &ev);
+        else
+          fprintf(stderr, "[screenshot] fail: not passed a event!\n");
+     }
+
+   /* check if the capture is done by xserver and pixmap has got the captured image */
+   if (ev.type == (screenshot->damage_base + XDamageNotify))
+     {
+        XDamageNotifyEvent *damage_ev = (XDamageNotifyEvent *)&ev;
+        if (damage_ev->drawable == screenshot->pixmap)
+          {
+             /* Get DRI2 FrontLeft buffer of the pixmap */
+             bufs = DRI2GetBuffers(screenshot->dpy, screenshot->pixmap, &buf_width, &buf_height, &attachment, 1, &nbufs);
+             if (!bufs)
+               {
+                  fprintf(stderr, "[screenshot] fail: DRI2GetBuffers\n");
+                  goto fail;
+               }
+
+             t_bo = tbm_bo_import(screenshot->bufmgr, bufs[0].name);
+             if (!t_bo)
+               {
+                  fprintf(stderr, "[screenshot] fail: import tbm_bo!\n");
+                  goto fail;
+               }
+
+             surf_info.width = buf_width;
+             surf_info.height = buf_height;
+             surf_info.format = TBM_FORMAT_XRGB8888;
+             surf_info.bpp = 32;
+             surf_info.size = bufs->pitch * surf_info.height;
+             surf_info.num_planes = 1;
+             for (i = 0; i < surf_info.num_planes; i++)
+               {
+                  surf_info.planes[i].size = bufs->pitch * surf_info.height;
+                  surf_info.planes[i].stride = bufs->pitch;
+                  surf_info.planes[i].offset = 0;
+               }
+             t_surface = tbm_surface_internal_create_with_bos(&surf_info, &t_bo, 1);
+             if (!t_surface)
+               {
+                  fprintf(stderr, "[screenshot] fail: get tbm_surface!\n");
+                  goto fail;
+               }
+
+             tbm_bo_unref(t_bo);
+             free(bufs);
+
+             XDamageSubtract(screenshot->dpy, screenshot->damage, None, None );
+
+             set_last_result(EFL_UTIL_ERROR_NONE);
+
+             return t_surface;
+          }
+
+        XDamageSubtract(screenshot->dpy, screenshot->damage, None, None );
+     }
+
+fail:
+
+   if (t_bo)
+     tbm_bo_unref(t_bo);
+   if (bufs)
+     free(bufs);
+
+   set_last_result(EFL_UTIL_ERROR_SCREENSHOT_EXECUTION_FAIL);
+
+   return NULL;
+#endif
+
+#if WAYLAND
+   tbm_bo t_bo = NULL;
+   tbm_surface_h t_surface = NULL;
+   struct wl_buffer *buffer = NULL;
+   tbm_surface_info_s info;
+   Efl_Util_Wl_Output_Info *output;
+   int ret = 0;
+
+   if (screenshot != g_screenshot)
+     {
+        set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
+        return NULL;
+     }
+
+   output = eina_list_nth(_eflutil.wl.shot.output_list, 0);
+   if (!output)
+     {
+        fprintf(stderr, "[screenshot] fail: no output for screenshot\n");
+        goto fail;
+     }
+
+   t_surface = tbm_surface_create(screenshot->width, screenshot->height, TBM_FORMAT_XRGB8888);
+   if (!t_surface)
+     {
+        fprintf(stderr, "[screenshot] fail: tbm_surface_create\n");
+        goto fail;
+     }
+
+   t_bo = tbm_surface_internal_get_bo(t_surface, 0);
+   if (!t_bo)
+     {
+        fprintf(stderr, "[screenshot] fail: no tbm_bo for screenshot\n");
+        goto fail;
+     }
+
+   tbm_surface_get_info(t_surface, &info);
+
+   buffer =
+     tizen_buffer_pool_create_buffer(_eflutil.wl.shot.buffer_pool,
+                                     tbm_bo_export(t_bo),
+                                     info.width, info.height,
+                                     info.planes[0].stride,
+                                     TIZEN_BUFFER_POOL_FORMAT_XRGB8888);
+   if (!buffer)
+     {
+        fprintf(stderr, "[screenshot] fail: create wl_buffer for screenshot\n");
+        goto fail;
+     }
+
+   screenshooter_shoot(_eflutil.wl.shot.screenshooter, output->output, buffer);
+
+   screenshot->shot_done = EINA_FALSE;
+   while (!screenshot->shot_done && ret != -1)
+     ret = wl_display_dispatch(_eflutil.wl.dpy);
+
+   if (ret == -1)
+     {
+        fprintf(stderr, "[screenshot] fail: screenshooter_shoot\n");
+        goto fail;
+     }
+
+   wl_buffer_destroy(buffer);
+
+   return t_surface;
+
+fail:
+   if (t_surface)
+     tbm_surface_destroy(t_surface);
+   if (buffer);
+     wl_buffer_destroy(buffer);
+
+   set_last_result(EFL_UTIL_ERROR_SCREENSHOT_EXECUTION_FAIL);
+
+   return NULL;
+#endif
 }
