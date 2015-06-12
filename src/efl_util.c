@@ -88,27 +88,21 @@ typedef struct _Efl_Util_Wl_Output_Info
 
 typedef struct _Efl_Util_Data
 {
+#if X11
    /* x11 related stuffs */
    struct
    {
       Eina_Bool init;
       Ecore_Event_Handler *handler; /* x11 client message handler */
-      #if X11
       Ecore_X_Display *dpy;
-      #endif /* end of X11 */
    } x11;
+#endif /* end of X11 */
 
-   struct
-   {
-      Eina_List *info_list; /* list of callback info */
-      unsigned int atom; /* x11 atom */
-   } cb_handler[CBH_MAX];
-
+#if WAYLAND
    /* wayland related stuffs */
    struct
    {
       Eina_Bool init;
-      #if WAYLAND
       struct wl_display *dpy;
       struct
       {
@@ -126,32 +120,38 @@ typedef struct _Efl_Util_Data
          struct tizen_buffer_pool *buffer_pool;
          Eina_List *output_list;
       } shot;
-      #endif /* end of WAYLAND */
    } wl;
+#endif /* end of WAYLAND */
+
+   struct
+   {
+      Eina_List *info_list; /* list of callback info */
+      unsigned int atom; /* x11 atom */
+   } cb_handler[CBH_MAX];
 } Efl_Util_Data;
 
 static Efl_Util_Data _eflutil =
 {
+#if X11
    {
       EINA_FALSE,
       NULL,
-      #if X11
       NULL
-      #endif /* end of X11 */
    },
-   {
-      { NULL, 0 }, /* handler for notification level */
-      { NULL, 0 }  /* handler for screen mode */
-   },
+#endif /* end of X11 */
+#if WAYLAND
    {
       EINA_FALSE,
-      #if WAYLAND
       NULL,
       { NULL, NULL }, /* tizen_notification protocol */
       { NULL, NULL },  /* tizen_window_screen protocol */
       { NULL, NULL, NULL }  /* screenshooter protocol */
-      #endif /* end of WAYLAND */
-   }
+   },
+#endif /* end of WAYLAND */
+   {
+      { NULL, 0 }, /* handler for notification level */
+      { NULL, 0 }  /* handler for screen mode */
+   },
 };
 
 static Eina_Bool               _cb_info_add(Evas_Object *win, Efl_Util_Cb cb, void *data, int idx);
@@ -159,7 +159,7 @@ static Eina_Bool               _cb_info_del_by_win(Evas_Object *win, int idx);
 static Eina_List              *_cb_info_list_get(int idx);
 static Efl_Util_Callback_Info *_cb_info_find_by_win(Evas_Object *win, int idx);
 #if X11
-static Efl_Util_Callback_Info *_cb_info_find_by_xwin(unsigned int xwin);
+static Efl_Util_Callback_Info *_cb_info_find_by_xwin(unsigned int xwin, int idx);
 static Eina_Bool               _cb_x11_client_msg(void *data, int type, void *event);
 static Eina_Bool               _x11_init(void);
 #endif /* end of X11 */
@@ -231,7 +231,6 @@ _cb_info_del_by_win(Evas_Object *win,
                     int idx)
 {
    Efl_Util_Callback_Info *info;
-   unsigned int count;
 
    info = _cb_info_find_by_win(win, idx);
    if (!info) return EINA_FALSE;
@@ -241,12 +240,14 @@ _cb_info_del_by_win(Evas_Object *win,
                          info);
    free(info);
 
-   count = eina_list_count(_eflutil.cb_handler[idx].info_list);
+#if X11
+   unsigned int count = eina_list_count(_eflutil.cb_handler[idx].info_list);
    if ((count == 0) && (_eflutil.x11.handler))
      {
         ecore_event_handler_del(_eflutil.x11.handler);
         _eflutil.x11.handler = NULL;
      }
+#endif
 
    return EINA_TRUE;
 }
@@ -307,7 +308,7 @@ _cb_x11_client_msg(void *data,
    xwin = ev->win;
    if (xwin == 0) return ECORE_CALLBACK_PASS_ON;
 
-   if (ev->message_type == _eflutil.atom.noti_lv)
+   if (ev->message_type == _eflutil.cb_handler[CBH_NOTI_LEV].atom)
      {
         info = _cb_info_find_by_xwin(xwin, CBH_NOTI_LEV);
 
@@ -321,7 +322,7 @@ _cb_x11_client_msg(void *data,
                       info->data);
           }
      }
-   else if (ev->message_type == _eflutil.atom.scr_mode)
+   else if (ev->message_type == _eflutil.cb_handler[CBH_SCR_MODE].atom)
      {
         info = _cb_info_find_by_xwin(xwin, CBH_SCR_MODE);
 
@@ -805,8 +806,8 @@ efl_util_set_notification_window_level_error_cb(Evas_Object *window,
    if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
 
 #if X11
-   if (!_eflutil.atom.noti_lv)
-     _eflutil.atom.noti_lv = ecore_x_atom_get("_E_NOTIFICATION_LEVEL_ACCESS_RESULT");
+   if (!_eflutil.cb_handler[CBH_NOTI_LEV].atom)
+     _eflutil.cb_handler[CBH_NOTI_LEV].atom = ecore_x_atom_get("_E_NOTIFICATION_LEVEL_ACCESS_RESULT");
 #endif /* end of X11 */
 
    return EFL_UTIL_ERROR_NONE;
@@ -844,7 +845,7 @@ efl_util_set_window_opaque_state(Evas_Object *window,
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    xwin = elm_win_xwindow_get(window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(xwin, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(xwin > 0, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    if (opaque)
      state = UTILX_OPAQUE_STATE_ON;
@@ -1077,8 +1078,8 @@ efl_util_set_window_screen_mode_error_cb(Evas_Object *window,
    if (!ret) return EFL_UTIL_ERROR_OUT_OF_MEMORY;
 
 #if X11
-   if (!_eflutil.atom.scr_mode)
-     _eflutil.atom.scr_mode = ecore_x_atom_get("_E_SCREEN_MODE_ACCESS_RESULT");
+   if (!_eflutil.cb_handler[CBH_SCR_MODE].atom)
+     _eflutil.cb_handler[CBH_SCR_MODE].atom = ecore_x_atom_get("_E_SCREEN_MODE_ACCESS_RESULT");
 #endif /* end of X11 */
 
    return EFL_UTIL_ERROR_NONE;
