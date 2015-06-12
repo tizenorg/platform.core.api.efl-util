@@ -41,7 +41,16 @@ ADD_DEFINITIONS("-DSLP_DEBUG")
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -Wl,--rpath=${LIB_INSTALL_DIR}")
 
-aux_source_directory(src SOURCES)
+SET(SOURCES src/efl_util.c)
+IF (WITH_WAYLAND)
+    SET(SOURCES ${SOURCES}
+		src/tizen_notification-protocol.c
+		src/tizen-buffer-pool-protocol.c
+		src/tizen_window_screen-protocol.c
+		src/screenshooter-protocol.c
+	)
+ENDIF (WITH_WAYLAND)
+
 ADD_LIBRARY(${fw_name} SHARED ${SOURCES})
 
 TARGET_LINK_LIBRARIES(${fw_name} ${${fw_name}_LDFLAGS})
