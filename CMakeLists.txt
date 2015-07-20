@@ -20,7 +20,7 @@ ENDIF (WITH_X11)
 
 IF (WITH_WAYLAND)
     ADD_DEFINITIONS("-DWAYLAND")
-    SET(dependents "${dependents} ecore-wayland wayland-client")
+    SET(dependents "${dependents} ecore-wayland wayland-client screenshooter-client tizen-extension-client")
 ENDIF (WITH_WAYLAND)
 
 INCLUDE(FindPkgConfig)
@@ -42,14 +42,6 @@ ADD_DEFINITIONS("-DSLP_DEBUG")
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -Wl,--rpath=${LIB_INSTALL_DIR}")
 
 SET(SOURCES src/efl_util.c)
-IF (WITH_WAYLAND)
-    SET(SOURCES ${SOURCES}
-		src/tizen_notification-protocol.c
-		src/tizen-buffer-pool-protocol.c
-		src/tizen_window_screen-protocol.c
-		src/screenshooter-protocol.c
-	)
-ENDIF (WITH_WAYLAND)
 
 ADD_LIBRARY(${fw_name} SHARED ${SOURCES})
 

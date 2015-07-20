@@ -24,6 +24,8 @@ BuildRequires:  pkgconfig(xdamage)
 %endif
 %if %{with wayland}
 BuildRequires:  pkgconfig(wayland-client)
+BuildRequires:  pkgconfig(screenshooter-client)
+BuildRequires:  pkgconfig(tizen-extension-client)
 BuildRequires:  pkgconfig(ecore-wayland)
 %endif
 BuildRequires:  pkgconfig(elementary)
