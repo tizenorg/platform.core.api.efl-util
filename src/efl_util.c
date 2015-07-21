@@ -102,6 +102,7 @@ typedef struct _Efl_Util_Data
    {
       Eina_Bool init;
       struct wl_display *dpy;
+      struct wl_event_queue *queue;
 
       struct
       {
@@ -137,7 +138,7 @@ static Efl_Util_Data _eflutil =
 #if WAYLAND
    {
       EINA_FALSE,
-      NULL,
+      NULL, NULL,
       { NULL, NULL, NULL }, /* tizen_policy protocol */
       { NULL, NULL, NULL }  /* screenshooter protocol */
    },
@@ -353,23 +354,38 @@ _x11_init(void)
 static Eina_Bool
 _wl_init(void)
 {
-   struct wl_registry *reg;
+   struct wl_registry *reg = NULL;
 
    if (_eflutil.wl.init) return EINA_TRUE;
 
    ecore_wl_init(NULL);
 
    _eflutil.wl.dpy = ecore_wl_display_get();
-   EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.dpy, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.dpy, fail);
+
+   _eflutil.wl.queue = wl_display_create_queue(_eflutil.wl.dpy);
+   EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.queue, fail);
 
    reg = wl_display_get_registry(_eflutil.wl.dpy);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(reg, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_GOTO(reg, fail);
 
+   wl_proxy_set_queue((struct wl_proxy*)reg, _eflutil.wl.queue);
    wl_registry_add_listener(reg, &_wl_reg_listener, NULL);
 
    _eflutil.wl.init = EINA_TRUE;
 
    return EINA_TRUE;
+fail:
+   if (_eflutil.wl.queue)
+     {
+        wl_event_queue_destroy(_eflutil.wl.queue);
+        _eflutil.wl.queue = NULL;
+     }
+
+   if (reg)
+     wl_registry_destroy(reg);
+   ecore_wl_shutdown();
+   return EINA_FALSE;
 }
 
 static void
@@ -636,7 +652,7 @@ efl_util_set_notification_window_level(Evas_Object *window,
    if (wlwin)
      {
         while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch(_eflutil.wl.dpy);
+          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
         surface = ecore_wl_window_surface_get(wlwin);
         EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
@@ -735,7 +751,7 @@ efl_util_get_notification_window_level(Evas_Object *window,
    if (wlwin)
      {
         while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch(_eflutil.wl.dpy);
+          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
         surface = ecore_wl_window_surface_get(wlwin);
         EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
@@ -752,7 +768,7 @@ efl_util_get_notification_window_level(Evas_Object *window,
                        while (lv_info->wait_for_done)
                          {
                             ecore_wl_flush();
-                            wl_display_dispatch(_eflutil.wl.dpy);
+                            wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
                          }
                     }
                   else
@@ -937,7 +953,7 @@ efl_util_set_window_screen_mode(Evas_Object *window,
    if (wlwin)
      {
         while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch(_eflutil.wl.dpy);
+          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
         surface = ecore_wl_window_surface_get(wlwin);
         EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
@@ -1019,7 +1035,7 @@ efl_util_get_window_screen_mode(Evas_Object *window,
    if (wlwin)
      {
         while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch(_eflutil.wl.dpy);
+          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
         surface = ecore_wl_window_surface_get(wlwin);
         EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
@@ -1033,7 +1049,7 @@ efl_util_get_window_screen_mode(Evas_Object *window,
                   while (scr_mode_info->wait_for_done)
                     {
                        ecore_wl_flush();
-                       wl_display_dispatch(_eflutil.wl.dpy);
+                       wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
                     }
                }
 
@@ -1409,7 +1425,7 @@ API efl_util_screenshot_h efl_util_screenshot_initialize(int width, int height)
         int ret = 0;
         _wl_init();
         while (!_eflutil.wl.shot.screenshooter && ret != -1)
-          ret = wl_display_dispatch(_eflutil.wl.dpy);
+          ret = wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
         EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.screenshooter, fail_init);
         EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.buffer_pool, fail_init);
      }
@@ -1718,7 +1734,7 @@ fail:
 
    screenshot->shot_done = EINA_FALSE;
    while (!screenshot->shot_done && ret != -1)
-     ret = wl_display_dispatch(_eflutil.wl.dpy);
+     ret = wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
    if (ret == -1)
      {
