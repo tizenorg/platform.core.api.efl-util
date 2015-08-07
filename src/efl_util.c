@@ -877,25 +877,32 @@ efl_util_set_window_opaque_state(Evas_Object *window,
 
 #if WAYLAND
    Ecore_Wl_Window *wlwin;
-   int x, y, w, h;
+   struct wl_surface *surface;
 
-   res = _wl_init();
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
-
-   wlwin = elm_win_wl_window_get(window);
-   if (wlwin)
+   if (!_eflutil.wl.policy.proto)
      {
-        evas_object_geometry_get(window, &x, &y, &w, &h);
+        int ret = 0;
 
-        if (opaque)
-          ecore_wl_window_opaque_region_set(wlwin, x, y, w, h);
-        else
-          ecore_wl_window_opaque_region_set(wlwin, 0, 0, 0, 0);
+        res = _wl_init();
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-        return EFL_UTIL_ERROR_NONE;
+        while (!_eflutil.wl.policy.proto && ret != -1)
+          ret = wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+        EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.policy.proto, EFL_UTIL_ERROR_INVALID_PARAMETER);
      }
 
-   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+   wlwin = elm_win_wl_window_get(window);
+   if (!wlwin)
+      return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+
+   surface  = ecore_wl_window_surface_get(wlwin);
+   if (!surface)
+      return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+
+   tizen_policy_set_opaque_state(_eflutil.wl.policy.proto, surface, opaque);
+
+   return EFL_UTIL_ERROR_NONE;
 #endif /* end of WAYLAND */
 }
 
