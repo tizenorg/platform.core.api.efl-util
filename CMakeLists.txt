@@ -20,7 +20,7 @@ ENDIF (WITH_X11)
 
 IF (WITH_WAYLAND)
     ADD_DEFINITIONS("-DWAYLAND")
-    SET(dependents "${dependents} ecore-wayland wayland-client screenshooter-client tizen-extension-client")
+    SET(dependents "${dependents} ecore-wayland wayland-client wayland-tbm-client screenshooter-client tizen-extension-client")
 ENDIF (WITH_WAYLAND)
 
 INCLUDE(FindPkgConfig)

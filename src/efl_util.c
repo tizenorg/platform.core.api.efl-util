@@ -44,6 +44,7 @@
 #if WAYLAND
 #include <Ecore_Wayland.h>
 #include <wayland-client.h>
+#include <wayland-tbm-client.h>
 #include <tizen-extension-client-protocol.h>
 #include <screenshooter-client-protocol.h>
 #endif /* end of WAYLAND */
@@ -113,7 +114,7 @@ typedef struct _Efl_Util_Data
       struct
       {
          struct screenshooter *screenshooter;
-         struct tizen_buffer_pool *buffer_pool;
+         struct wayland_tbm_client *tbm_client;
          Eina_List *output_list;
       } shot;
    } wl;
@@ -477,10 +478,6 @@ _cb_wl_reg_global(void *data,
 
         output->output = wl_registry_bind(reg, name, &wl_output_interface, version);
         wl_output_add_listener(output->output, &output_listener, output);
-     }
-   else if (strcmp(interface, "tizen_buffer_pool") == 0)
-     {
-        _eflutil.wl.shot.buffer_pool = wl_registry_bind(reg, name, &tizen_buffer_pool_interface, 1);
      }
    else if (strcmp(interface, "screenshooter") == 0)
      {
@@ -1432,9 +1429,11 @@ API efl_util_screenshot_h efl_util_screenshot_initialize(int width, int height)
         int ret = 0;
         _wl_init();
         while (!_eflutil.wl.shot.screenshooter && ret != -1)
-          ret = wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+          ret = wl_display_roundtrip_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
         EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.screenshooter, fail_init);
-        EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.buffer_pool, fail_init);
+
+       _eflutil.wl.shot.tbm_client = wayland_tbm_client_init(_eflutil.wl.dpy);
+       EINA_SAFETY_ON_NULL_GOTO(_eflutil.wl.shot.tbm_client, fail_init);
      }
 
    EINA_SAFETY_ON_FALSE_GOTO(width > 0, fail_param);
@@ -1457,7 +1456,7 @@ API efl_util_screenshot_h efl_util_screenshot_initialize(int width, int height)
    screenshot->width = width;
    screenshot->height = height;
 
-   screenshot->bufmgr = tbm_bufmgr_init(-1);
+   screenshot->bufmgr = wayland_tbm_client_get_bufmgr(_eflutil.wl.shot.tbm_client);
    EINA_SAFETY_ON_NULL_GOTO(screenshot->bufmgr, fail_init);
 
    g_screenshot = screenshot;
@@ -1538,9 +1537,6 @@ API int efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
 #if WAYLAND
    if (!screenshot)
      return EFL_UTIL_ERROR_NONE;
-
-   if (screenshot->bufmgr)
-     tbm_bufmgr_deinit(screenshot->bufmgr);
 
    free(screenshot);
    g_screenshot = NULL;
@@ -1689,10 +1685,8 @@ fail:
 #endif
 
 #if WAYLAND
-   tbm_bo t_bo = NULL;
    tbm_surface_h t_surface = NULL;
    struct wl_buffer *buffer = NULL;
-   tbm_surface_info_s info;
    Efl_Util_Wl_Output_Info *output;
    int ret = 0;
 
@@ -1716,21 +1710,7 @@ fail:
         goto fail;
      }
 
-   t_bo = tbm_surface_internal_get_bo(t_surface, 0);
-   if (!t_bo)
-     {
-        fprintf(stderr, "[screenshot] fail: no tbm_bo for screenshot\n");
-        goto fail;
-     }
-
-   tbm_surface_get_info(t_surface, &info);
-
-   buffer =
-     tizen_buffer_pool_create_buffer(_eflutil.wl.shot.buffer_pool,
-                                     tbm_bo_export(t_bo),
-                                     info.width, info.height,
-                                     info.planes[0].stride,
-                                     TIZEN_BUFFER_POOL_FORMAT_XRGB8888);
+   buffer = wayland_tbm_client_create_buffer(_eflutil.wl.shot.tbm_client, t_surface);
    if (!buffer)
      {
         fprintf(stderr, "[screenshot] fail: create wl_buffer for screenshot\n");
@@ -1741,7 +1721,7 @@ fail:
 
    screenshot->shot_done = EINA_FALSE;
    while (!screenshot->shot_done && ret != -1)
-     ret = wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+     ret = wl_display_roundtrip_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
    if (ret == -1)
      {
@@ -1750,6 +1730,9 @@ fail:
      }
 
    wl_buffer_destroy(buffer);
+
+   /* reset shot_done for next screenshot */
+   screenshot->shot_done = EINA_FALSE;
 
    return t_surface;
 
