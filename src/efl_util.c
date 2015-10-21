@@ -633,7 +633,7 @@ efl_util_set_notification_window_level(Evas_Object *window,
 #endif /* end of X11 */
 
 #if WAYLAND
-   Elm_Win_Type type;
+   Ecore_Wl_Window_Type type;
    Ecore_Wl_Window *wlwin;
    struct wl_surface *surface;
    Efl_Util_Wl_Surface_Lv_Info *lv_info;
@@ -641,13 +641,13 @@ efl_util_set_notification_window_level(Evas_Object *window,
    res = _wl_init();
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   type = elm_win_type_get(window);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
-                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
-
    wlwin = elm_win_wl_window_get(window);
    if (wlwin)
      {
+        type = ecore_wl_window_type_get(wlwin);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ECORE_WL_WINDOW_TYPE_NOTIFICATION),
+                                        EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
         while (!_eflutil.wl.policy.proto)
           wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
@@ -732,7 +732,7 @@ efl_util_get_notification_window_level(Evas_Object *window,
 #endif /* end of X11 */
 
 #if WAYLAND
-   Elm_Win_Type type;
+   Ecore_Wl_Window_Type type;
    Ecore_Wl_Window *wlwin;
    struct wl_surface *surface;
    Efl_Util_Wl_Surface_Lv_Info *lv_info;
@@ -740,13 +740,13 @@ efl_util_get_notification_window_level(Evas_Object *window,
    res = _wl_init();
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   type = elm_win_type_get(window);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
-                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
-
    wlwin = elm_win_wl_window_get(window);
    if (wlwin)
      {
+        type = ecore_wl_window_type_get(wlwin);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ECORE_WL_WINDOW_TYPE_NOTIFICATION),
+                                        EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
         while (!_eflutil.wl.policy.proto)
           wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
