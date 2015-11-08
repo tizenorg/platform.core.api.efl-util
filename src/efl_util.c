@@ -759,16 +759,15 @@ efl_util_get_notification_window_level(Evas_Object *window,
           {
              if (lv_info->wait_for_done)
                {
-                  if (ecore_wl_window_shell_surface_get(wlwin) ||
-                      ecore_wl_window_xdg_surface_get(wlwin))
+                  int count = 0;
+                  while ((lv_info->wait_for_done) && (count < 3))
                     {
-                       while (lv_info->wait_for_done)
-                         {
-                            ecore_wl_flush();
-                            wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
-                         }
+                       ecore_wl_flush();
+                       wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+                       count++;
                     }
-                  else
+
+                  if (lv_info->wait_for_done)
                     {
                        *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
                        return EFL_UTIL_ERROR_INVALID_PARAMETER;
