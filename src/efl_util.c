@@ -630,6 +630,8 @@ efl_util_set_notification_window_level(Evas_Object *window,
                                             level);
         return EFL_UTIL_ERROR_NONE;
      }
+
+   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 #endif /* end of X11 */
 
 #if WAYLAND
@@ -637,52 +639,54 @@ efl_util_set_notification_window_level(Evas_Object *window,
    Ecore_Wl_Window *wlwin;
    struct wl_surface *surface;
    Efl_Util_Wl_Surface_Lv_Info *lv_info;
+   Ecore_Wl_Window_Type wl_type;
 
    res = _wl_init();
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   type = elm_win_type_get(window);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
-                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
-
    wlwin = elm_win_wl_window_get(window);
-   if (wlwin)
+   EINA_SAFETY_ON_NULL_RETURN_VAL(wlwin, EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   type = elm_win_type_get(window);
+   if (type != ELM_WIN_NOTIFICATION)
      {
-        while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
-
-        surface = ecore_wl_window_surface_get(wlwin);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
-                                       EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
-
-        lv_info = eina_hash_find(_eflutil.wl.policy.hash_noti_lv, &surface);
-        if (!lv_info)
-          {
-             lv_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Lv_Info));
-             EINA_SAFETY_ON_NULL_RETURN_VAL(lv_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
-
-             lv_info->surface = surface;
-             lv_info->level = (int)level;
-             lv_info->wait_for_done = EINA_TRUE;
-
-             eina_hash_add(_eflutil.wl.policy.hash_noti_lv,
-                           &surface,
-                           lv_info);
-          }
-        else
-          {
-             lv_info->level = (int)level;
-             lv_info->wait_for_done = EINA_TRUE;
-          }
-
-        tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
-                                            surface, (int)level);
-
-        return EFL_UTIL_ERROR_NONE;
+        wl_type = ecore_wl_window_type_get(wlwin);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL((wl_type == ECORE_WL_WINDOW_TYPE_NOTIFICATION),
+                                        EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
      }
-#endif /* end of WAYLAND */
 
-   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
+   while (!_eflutil.wl.policy.proto)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   surface = ecore_wl_window_surface_get(wlwin);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                  EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   lv_info = eina_hash_find(_eflutil.wl.policy.hash_noti_lv, &surface);
+   if (!lv_info)
+     {
+        lv_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Lv_Info));
+        EINA_SAFETY_ON_NULL_RETURN_VAL(lv_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
+
+        lv_info->surface = surface;
+        lv_info->level = (int)level;
+        lv_info->wait_for_done = EINA_TRUE;
+
+        eina_hash_add(_eflutil.wl.policy.hash_noti_lv,
+                      &surface,
+                      lv_info);
+     }
+   else
+     {
+        lv_info->level = (int)level;
+        lv_info->wait_for_done = EINA_TRUE;
+     }
+
+   tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
+                                       surface, (int)level);
+
+   return EFL_UTIL_ERROR_NONE;
+#endif /* end of WAYLAND */
 }
 
 API int
@@ -729,6 +733,8 @@ efl_util_get_notification_window_level(Evas_Object *window,
 
         return EFL_UTIL_ERROR_NONE;
      }
+
+   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 #endif /* end of X11 */
 
 #if WAYLAND
@@ -736,66 +742,69 @@ efl_util_get_notification_window_level(Evas_Object *window,
    Ecore_Wl_Window *wlwin;
    struct wl_surface *surface;
    Efl_Util_Wl_Surface_Lv_Info *lv_info;
+   Ecore_Wl_Window_Type wl_type;
 
    res = _wl_init();
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
-   type = elm_win_type_get(window);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((type == ELM_WIN_NOTIFICATION),
-                                   EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
-
    wlwin = elm_win_wl_window_get(window);
-   if (wlwin)
+   EINA_SAFETY_ON_NULL_RETURN_VAL(wlwin, EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   type = elm_win_type_get(window);
+   if (type != ELM_WIN_NOTIFICATION)
      {
-        while (!_eflutil.wl.policy.proto)
-          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+        wl_type = ecore_wl_window_type_get(wlwin);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL((wl_type == ECORE_WL_WINDOW_TYPE_NOTIFICATION),
+                                        EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+     }
 
-        surface = ecore_wl_window_surface_get(wlwin);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
-                                       EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+   while (!_eflutil.wl.policy.proto)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
-        lv_info = eina_hash_find(_eflutil.wl.policy.hash_noti_lv, &surface);
-        if (lv_info)
+   surface = ecore_wl_window_surface_get(wlwin);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                  EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE);
+
+   lv_info = eina_hash_find(_eflutil.wl.policy.hash_noti_lv, &surface);
+   if (lv_info)
+     {
+        if (lv_info->wait_for_done)
           {
+             int count = 0;
+             while ((lv_info->wait_for_done) && (count < 3))
+               {
+                  ecore_wl_flush();
+                  wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+                  count++;
+               }
+
              if (lv_info->wait_for_done)
                {
-                  int count = 0;
-                  while ((lv_info->wait_for_done) && (count < 3))
-                    {
-                       ecore_wl_flush();
-                       wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
-                       count++;
-                    }
-
-                  if (lv_info->wait_for_done)
-                    {
-                       *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
-                       return EFL_UTIL_ERROR_INVALID_PARAMETER;
-                    }
+                  *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+                  return EFL_UTIL_ERROR_INVALID_PARAMETER;
                }
-
-             switch (lv_info->level)
-               {
-                case TIZEN_POLICY_LEVEL_1:       *level = EFL_UTIL_NOTIFICATION_LEVEL_1;       break;
-                case TIZEN_POLICY_LEVEL_2:       *level = EFL_UTIL_NOTIFICATION_LEVEL_2;       break;
-                case TIZEN_POLICY_LEVEL_3:       *level = EFL_UTIL_NOTIFICATION_LEVEL_3;       break;
-                case TIZEN_POLICY_LEVEL_NONE:    *level = EFL_UTIL_NOTIFICATION_LEVEL_NONE;    break;
-                case TIZEN_POLICY_LEVEL_DEFAULT: *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT; break;
-                case TIZEN_POLICY_LEVEL_MEDIUM:  *level = EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM;  break;
-                case TIZEN_POLICY_LEVEL_HIGH:    *level = EFL_UTIL_NOTIFICATION_LEVEL_HIGH;    break;
-                case TIZEN_POLICY_LEVEL_TOP:     *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;     break;
-                default:                               *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
-                                                       return EFL_UTIL_ERROR_INVALID_PARAMETER;
-               }
-             return EFL_UTIL_ERROR_NONE;
           }
-        else
-          *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
 
+        switch (lv_info->level)
+          {
+           case TIZEN_POLICY_LEVEL_1:       *level = EFL_UTIL_NOTIFICATION_LEVEL_1;       break;
+           case TIZEN_POLICY_LEVEL_2:       *level = EFL_UTIL_NOTIFICATION_LEVEL_2;       break;
+           case TIZEN_POLICY_LEVEL_3:       *level = EFL_UTIL_NOTIFICATION_LEVEL_3;       break;
+           case TIZEN_POLICY_LEVEL_NONE:    *level = EFL_UTIL_NOTIFICATION_LEVEL_NONE;    break;
+           case TIZEN_POLICY_LEVEL_DEFAULT: *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT; break;
+           case TIZEN_POLICY_LEVEL_MEDIUM:  *level = EFL_UTIL_NOTIFICATION_LEVEL_MEDIUM;  break;
+           case TIZEN_POLICY_LEVEL_HIGH:    *level = EFL_UTIL_NOTIFICATION_LEVEL_HIGH;    break;
+           case TIZEN_POLICY_LEVEL_TOP:     *level = EFL_UTIL_NOTIFICATION_LEVEL_TOP;     break;
+           default:                         *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+            return EFL_UTIL_ERROR_INVALID_PARAMETER;
+          }
         return EFL_UTIL_ERROR_NONE;
      }
+   else
+     *level = EFL_UTIL_NOTIFICATION_LEVEL_DEFAULT;
+
+   return EFL_UTIL_ERROR_NONE;
 #endif /* end of WAYLAND */
-   return EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE;
 }
 
 API int
