@@ -599,7 +599,7 @@ efl_util_set_notification_window_level(Evas_Object *window,
    Eina_Bool res;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((level >= EFL_UTIL_NOTIFICATION_LEVEL_1) &&
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((level >= EFL_UTIL_NOTIFICATION_LEVEL_NONE) &&
                                    (level <= EFL_UTIL_NOTIFICATION_LEVEL_TOP),
                                    EFL_UTIL_ERROR_INVALID_PARAMETER);
 
