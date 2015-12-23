@@ -1747,7 +1747,7 @@ fail:
 fail:
    if (t_surface)
      tbm_surface_destroy(t_surface);
-   if (buffer);
+   if (buffer)
      wl_buffer_destroy(buffer);
 
    set_last_result(EFL_UTIL_ERROR_SCREENSHOT_EXECUTION_FAIL);
