@@ -87,7 +87,7 @@ typedef enum
 } efl_util_screen_mode_e;
 
 /**
- * @brief Sets the priority level for the specified notification window, asynchronously.
+ * @brief Sets the priority level for the specified notification window.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @privlevel public
  * @privilege %http://tizen.org/privilege/window.priority.set
@@ -98,11 +98,12 @@ typedef enum
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
  * @retval #EFL_UTIL_ERROR_NOT_SUPPORTED_WINDOW_TYPE Window type not supported
+ * @retval #EFL_UTIL_ERROR_PERMISSION_DENIED Unprevilige access
  */
 API int efl_util_set_notification_window_level(Evas_Object *window, efl_util_notification_level_e level);
 
 /**
- * @brief Gets the priority level for the specified notification window, asynchronously.
+ * @brief Gets the priority level for the specified notification window.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  *
  * @remarks This API can be used for a notification type window only.
@@ -116,6 +117,7 @@ API int efl_util_set_notification_window_level(Evas_Object *window, efl_util_not
 API int efl_util_get_notification_window_level(Evas_Object *window, efl_util_notification_level_e *level);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Called when an error occurs for setting notification window level
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @param[in] window The EFL window
@@ -127,7 +129,9 @@ API int efl_util_get_notification_window_level(Evas_Object *window, efl_util_not
 typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window, int error_code, void *user_data);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Registers a callback function to be invoked when an error which set the notification level occurs.
+ * @details	An application can check error by the return value of efl_util_set_notification_window_level.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @param[in] window The EFL window
  * @param[in] callback The callback function to register
@@ -143,7 +147,9 @@ typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window,
 API int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Unregisters the callback function.
+ * @details	An application can check error by the return value of efl_util_set_notification_window_level.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @param[in] window The EFL window
  * @return @c 0 on success, otherwise a negative error value
@@ -186,6 +192,7 @@ API int efl_util_set_window_opaque_state(Evas_Object *window, int opaque);
  * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
  * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+ * @retval #EFL_UTIL_ERROR_PERMISSION_DENIED Unprevilige access
  */
 API int efl_util_set_window_screen_mode(Evas_Object *window, efl_util_screen_mode_e mode);
 
@@ -201,6 +208,7 @@ API int efl_util_set_window_screen_mode(Evas_Object *window, efl_util_screen_mod
 API int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mode_e *mode);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Called when an error occurs for setting window's screen mode
  * @since_tizen 2.4
  * @param[in] window The EFL window
@@ -212,7 +220,9 @@ API int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mod
 typedef void (*efl_util_window_screen_mode_error_cb)(Evas_Object *window, int error_code, void *user_data);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Registers a callback function to be invoked when an error which set the screen mode.
+ * @details	An application can check error by the return value of efl_util_set_window_screen_mode.
  * @since_tizen 2.4
  * @param[in] window The EFL window
  * @param[in] callback The callback function to register
@@ -228,7 +238,9 @@ typedef void (*efl_util_window_screen_mode_error_cb)(Evas_Object *window, int er
 API int efl_util_set_window_screen_mode_error_cb(Evas_Object *window, efl_util_window_screen_mode_error_cb callback, void *user_data);
 
 /**
+ * @deprecated Deprecated since_tizen 3.0
  * @brief Unregisters the callback function.
+ * @details	An application can check error by the return value of efl_util_set_window_screen_mode.
  * @since_tizen 2.4
  * @param[in] window The EFL window
  * @return @c 0 on success, otherwise a negative error value
