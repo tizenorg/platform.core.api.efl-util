@@ -129,6 +129,7 @@ typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window,
 /**
  * @brief Registers a callback function to be invoked when an error which set the notification level occurs.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
+ * @deprecated since_tizen 3.0
  * @param[in] window The EFL window
  * @param[in] callback The callback function to register
  * @param[in] user_data The user data to be passed to the callback function
@@ -145,6 +146,7 @@ API int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl
 /**
  * @brief Unregisters the callback function.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
+ * @deprecated since_tizen 3.0
  * @param[in] window The EFL window
  * @return @c 0 on success, otherwise a negative error value
  * @retval #EFL_UTIL_ERROR_NONE Successful
