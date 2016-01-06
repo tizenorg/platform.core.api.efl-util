@@ -69,6 +69,7 @@ typedef struct _Efl_Util_Wl_Surface_Lv_Info
    void *surface; /* wl_surface */
    int level;
    Eina_Bool wait_for_done;
+   uint32_t state;
 } Efl_Util_Wl_Surface_Lv_Info;
 
 typedef struct _Efl_Util_Wl_Surface_Scr_Mode_Info
@@ -76,6 +77,7 @@ typedef struct _Efl_Util_Wl_Surface_Scr_Mode_Info
    void *surface; /* wl_surface */
    unsigned int mode;
    Eina_Bool wait_for_done;
+   uint32_t state;
 } Efl_Util_Wl_Surface_Scr_Mode_Info;
 
 typedef struct _Efl_Util_Wl_Output_Info
@@ -544,6 +546,7 @@ _cb_wl_tz_policy_notification_done(void *data,
      {
         lv_info->level = level;
         lv_info->wait_for_done = EINA_FALSE;
+        lv_info->state = state;
      }
 
    if (state != TIZEN_POLICY_ERROR_STATE_PERMISSION_DENIED) return;
@@ -578,6 +581,7 @@ _cb_wl_tz_policy_scr_mode_done(void *data,
      {
         scr_mode_info->mode = mode;
         scr_mode_info->wait_for_done = EINA_FALSE;
+        scr_mode_info->state = state;
      }
 
    if (state != TIZEN_POLICY_ERROR_STATE_PERMISSION_DENIED) return;
@@ -671,7 +675,7 @@ efl_util_set_notification_window_level(Evas_Object *window,
         lv_info->surface = surface;
         lv_info->level = (int)level;
         lv_info->wait_for_done = EINA_TRUE;
-
+        lv_info->state = TIZEN_POLICY_ERROR_STATE_NONE;
         eina_hash_add(_eflutil.wl.policy.hash_noti_lv,
                       &surface,
                       lv_info);
@@ -684,6 +688,29 @@ efl_util_set_notification_window_level(Evas_Object *window,
 
    tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
                                        surface, (int)level);
+
+   if (lv_info->wait_for_done)
+     {
+        int count = 0;
+        while (lv_info->wait_for_done && (count < 3))
+          {
+             ecore_wl_flush();
+             wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+             count++;
+          }
+
+        if (lv_info->wait_for_done)
+          {
+             return EFL_UTIL_ERROR_INVALID_PARAMETER;
+          }
+        else
+          {
+             if (lv_info->state == TIZEN_POLICY_ERROR_STATE_PERMISSION_DENIED)
+               {
+                  return EFL_UTIL_ERROR_PERMISSION_DENIED;
+               }
+          }
+     }
 
    return EFL_UTIL_ERROR_NONE;
 #endif /* end of WAYLAND */
@@ -993,6 +1020,28 @@ efl_util_set_window_screen_mode(Evas_Object *window,
 
         tizen_policy_set_window_screen_mode(_eflutil.wl.policy.proto,
                                             surface, (unsigned int)mode);
+        if (scr_mode_info->wait_for_done)
+          {
+             int count = 0;
+             while (scr_mode_info->wait_for_done && (count < 3))
+               {
+                  ecore_wl_flush();
+                  wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+                  count++;
+               }
+
+             if (scr_mode_info->wait_for_done)
+               {
+                  return EFL_UTIL_ERROR_INVALID_PARAMETER;
+               }
+             else
+               {
+                  if (scr_mode_info->state == TIZEN_POLICY_ERROR_STATE_PERMISSION_DENIED)
+                    {
+                       return EFL_UTIL_ERROR_PERMISSION_DENIED;
+                    }
+               }
+          }
 
         return EFL_UTIL_ERROR_NONE;
      }
