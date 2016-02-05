@@ -124,6 +124,7 @@ API int efl_util_get_notification_window_level(Evas_Object *window, efl_util_not
  * @deprecated Deprecated since_tizen 3.0.
  * @brief Called when an error occurs for setting notification window level
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
+ * @remarks An application can check error by the return value of efl_util_set_notification_window_level since 3.0.
  * @param[in] window The EFL window
  * @param[in] error_code The error code (#EFL_UTIL_ERROR_PERMISSION_DENIED)
  * @param[in] user_data The user data passed from the callback registration function
@@ -215,6 +216,7 @@ API int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mod
  * @deprecated Deprecated since_tizen 3.0.
  * @brief Called when an error occurs for setting window's screen mode
  * @since_tizen 2.4
+ * @remarks An application can check error by the return value of efl_util_set_window_screen_mode since 3.0.
  * @param[in] window The EFL window
  * @param[in] error_code The error code (#EFL_UTIL_ERROR_PERMISSION_DENIED)
  * @param[in] user_data The user data passed from the callback registration function
