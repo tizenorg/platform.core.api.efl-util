@@ -625,6 +625,18 @@ _cb_window_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, v
    tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
                                        surface, (int)lv_info->level);
 }
+
+static void
+_cb_window_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Efl_Util_Wl_Surface_Lv_Info *lv_info;
+
+   lv_info = data;
+   if (EINA_UNLIKELY(!lv_info))
+     return;
+
+   eina_hash_del(_eflutil.wl.policy.hash_noti_lv, &lv_info->surface, lv_info);
+}
 #endif /* end of WAYLAND */
 
 API int
@@ -714,6 +726,8 @@ efl_util_set_notification_window_level(Evas_Object *window,
 
         evas_object_event_callback_add(window, EVAS_CALLBACK_SHOW,
                                        _cb_window_show, lv_info);
+        evas_object_event_callback_add(window, EVAS_CALLBACK_DEL,
+                                       _cb_window_del, lv_info);
      }
    else
      {
