@@ -34,6 +34,8 @@ BuildRequires:  pkgconfig(capi-base-common)
 BuildRequires:  pkgconfig(libdrm)
 BuildRequires:  pkgconfig(libtbm)
 
+%global TZ_SYS_RO_SHARE  %{?TZ_SYS_RO_SHARE:%TZ_SYS_RO_SHARE}%{!?TZ_SYS_RO_SHARE:/usr/share}
+
 %description
 An EFL utility library in SLP C API.
 
@@ -66,8 +68,8 @@ make %{?jobs:-j%jobs}
 %make_install
 
 # for license notification
-mkdir -p %{buildroot}/usr/share/license
-cp -a LICENSE.APLv2 %{buildroot}/usr/share/license/%{name}
+mkdir -p %{buildroot}/%{TZ_SYS_RO_SHARE}/license
+cp -a LICENSE.APLv2 %{buildroot}/%{TZ_SYS_RO_SHARE}/license/%{name}
 
 %post -p /sbin/ldconfig
 
@@ -76,9 +78,8 @@ cp -a LICENSE.APLv2 %{buildroot}/usr/share/license/%{name}
 
 %files
 %manifest %{name}.manifest
-%license LICENSE.APLv2
 %{_libdir}/libcapi-ui-efl-util.so.*
-/usr/share/license/%{name}
+%{TZ_SYS_RO_SHARE}/license/%{name}
 
 %files devel
 %manifest %{name}.manifest
