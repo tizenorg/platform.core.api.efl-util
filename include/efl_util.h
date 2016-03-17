@@ -265,6 +265,14 @@ API int efl_util_unset_window_screen_mode_error_cb(Evas_Object *window);
  * @{
  */
 
+ /**
+  * @platform
+  * @brief Definition for the input generator handle.
+  * @since_tizen 2.4
+  */
+
+ typedef struct _efl_util_inputgen_h * efl_util_inputgen_h;
+
 /**
  * @platform
  * @brief Enumeration of device type generated events.
@@ -272,11 +280,12 @@ API int efl_util_unset_window_screen_mode_error_cb(Evas_Object *window);
  */
 typedef enum
 {
-   EFL_UTIL_INPUT_DEVTYPE_NONE,
-   EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN, /**< Touch Screen device */
-   EFL_UTIL_INPUT_DEVTYPE_KEYBOARD, /**< Keyboard device */
-   EFL_UTIL_INPUT_DEVTYPE_ALL, /**< Both of touch screen and keyboard device */
-   EFL_UTIL_INPUT_DEVTYPE_MAX
+   EFL_UTIL_INPUT_DEVTYPE_NONE = 0x0,
+   EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN = (1 << 0), /**< Touch Screen device */
+   EFL_UTIL_INPUT_DEVTYPE_KEYBOARD = (1 << 1), /**< Keyboard device */
+   EFL_UTIL_INPUT_DEVTYPE_ALL = EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN |
+                                EFL_UTIL_INPUT_DEVTYPE_KEYBOARD, /**< Both of touch screen and keyboard device */
+   EFL_UTIL_INPUT_DEVTYPE_MAX = (1 << 10)
 } efl_util_input_device_type_e;
 
 /**
@@ -290,62 +299,71 @@ typedef enum
    EFL_UTIL_INPUT_TOUCH_BEGIN, /**< Finger press. It is same a behavior put your finger on touch screen */
    EFL_UTIL_INPUT_TOUCH_UPDATE, /**< Finger move. It is same a behavior move your finger on touch screen */
    EFL_UTIL_INPUT_TOUCH_END, /**< Finger release. It is same a behavior release your finger on touch screen */
-   EFL_UTIL_INPUT_TOUCH_MAX
+   EFL_UTIL_INPUT_TOUCH_MAX = 10
 } efl_util_input_touch_type_e;
 
 /**
- * @platform
- * @brief Initializes system and check input generate functions are supported, open devices generated events.
- * @since_tizen 2.4
- * @privlevel platform
- * @privilege %http://tizen.org/privilege/inputgenerator
- * @param[in] dev_type The device type want to generate events (ex> EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN, EFL_UTIL_INPUT_DEVTYPE_KEYBOARD, EFL_UTIL_INPUT_DEVTYPE_ALL)
- * @return @c 0 on success, otherwise a negative error value
- * @retval #EFL_UTIL_ERROR_NONE Successful
- * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
- * @retval #EFL_UTIL_ERROR_NO_SUCH_DEVICE No such device or address
- * @retval #EFL_UTIL_ERROR_INVALID_OPERATION Function not implemented
- * @see efl_util_input_generate_deinit()
- */
-API int efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type);
+   * @platform
+   * @brief Initializes system and check input generate functions are supported, open devices generated events.
+   * @since_tizen 2.4
+   * @privlevel platform
+   * @privilege %http://tizen.org/privilege/inputgenerator
+   * @remarks The specific error code can be obtained using the get_last_result() method. Error codes are described in Exception section.
+   * @param[in] dev_type The device type want to generate events (ex> EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN, EFL_UTIL_INPUT_DEVTYPE_KEYBOARD, EFL_UTIL_INPUT_DEVTYPE_ALL)
+   * @return #efl_util_inputgen_h on success, otherwise @c NULL
+   * @retval #efl_util_inputgen_h The input generator handle
+   * @exception #EFL_UTIL_ERROR_NONE Successful
+   * @exception #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+   * @exception #EFL_UTIL_ERROR_NO_SUCH_DEVICE No such device or address
+   * @exception #EFL_UTIL_ERROR_INVALID_OPERATION Function not implemented
+   * @exception #EFL_UTIL_ERROR_OUT_OF_MEMORY Memory allocation failure
+   * @see efl_util_input_deinitialize_generator()
+   */
+API efl_util_inputgen_h efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type);
 
 /**
- * @platform
- * @brief Deinitializes system and close opened devices.
- * @since_tizen 2.4
- * @privlevel platform
- * @privilege %http://tizen.org/privilege/inputgenerator
- * @see efl_util_input_generate_init()
- */
-API void efl_util_input_deinitialize_generator(void);
+   * @platform
+   * @brief Deinitializes system and close opened devices.
+   * @since_tizen 2.4
+   * @privlevel platform
+   * @privilege %http://tizen.org/privilege/inputgenerator
+   * @param[in] inputgen_h The efl_util_inputgen_h handle
+   * @return @c 0 on success, otherwise a negative error value
+   * @retval #EFL_UTIL_ERROR_NONE Successful
+   * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+   * @see efl_util_input_initialize_generator()
+   */
+API int efl_util_input_deinitialize_generator(efl_util_inputgen_h inputgen_h);
 
 /**
- * @platform
- * @brief Generates all of key events using a opened device.
- * @since_tizen 2.4
- * @privlevel platform
- * @privilege %http://tizen.org/privilege/inputgenerator
- * @param[in] key_name The key name want to generate
- * @param[in] pressed The value that select key press or release (0: release, 1: press)
- * @return @c 0 on success, otherwise a negative error value
- * @retval #EFL_UTIL_ERROR_NONE Successful
- * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
- */
-API int efl_util_input_generate_key(const char *key_name, int pressed);
+   * @platform
+   * @brief Generates all of key events using a opened device.
+   * @since_tizen 2.4
+   * @privlevel platform
+   * @privilege %http://tizen.org/privilege/inputgenerator
+   * @param[in] key_name The key name want to generate
+   * @param[in] pressed The value that select key press or release (0: release, 1: press)
+   * @return @c 0 on success, otherwise a negative error value
+   * @retval #EFL_UTIL_ERROR_NONE Successful
+   * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+   * @retval #EFL_UTIL_ERROR_PERMISSION_DENIED Has no permission to generate key
+   */
+API int efl_util_input_generate_key(efl_util_inputgen_h inputgen_h, const char *key_name, int pressed);
 
 /**
- * @platform
- * @brief Generates a touch event using a opened device.
- * @since_tizen 2.4
- * @privlevel platform
- * @privilege %http://tizen.org/privilege/inputgenerator
- * @param[in] idx The index of touched finger
- * @param[in] efl_util_input_touch_type_e The touch type (ex> EFL_UTIL_INPUT_TOUCH_BEGIN, EFL_UTIL_INPUT_TOUCH_UPDATE, EFL_UTIL_INPUT_TOUCH_END)
- * @return @c 0 on success, otherwise a negative error value
- * @retval #EFL_UTIL_ERROR_NONE Successful
- * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
- */
-API int efl_util_input_generate_touch(int idx, efl_util_input_touch_type_e touch_type, int x, int y);
+   * @platform
+   * @brief Generates a touch event using a opened device.
+   * @since_tizen 2.4
+   * @privlevel platform
+   * @privilege %http://tizen.org/privilege/inputgenerator
+   * @param[in] idx The index of touched finger
+   * @param[in] efl_util_input_touch_type_e The touch type (ex> EFL_UTIL_INPUT_TOUCH_BEGIN, EFL_UTIL_INPUT_TOUCH_UPDATE, EFL_UTIL_INPUT_TOUCH_END)
+   * @return @c 0 on success, otherwise a negative error value
+   * @retval #EFL_UTIL_ERROR_NONE Successful
+   * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+   * @retval #EFL_UTIL_ERROR_PERMISSION_DENIED Has no permission to generate touch
+   */
+API int efl_util_input_generate_touch(efl_util_inputgen_h inputgen_h, int idx, efl_util_input_touch_type_e touch_type, int x, int y);
 
 /**
  * @}
