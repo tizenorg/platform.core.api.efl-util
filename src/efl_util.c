@@ -120,6 +120,11 @@ typedef struct _Efl_Util_Data
          struct wayland_tbm_client *tbm_client;
          Eina_List *output_list;
       } shot;
+      struct
+      {
+         struct tizen_input_device_manager *devicemgr;
+         int request_notified;
+      } devmgr;
    } wl;
 #endif /* end of WAYLAND */
 
@@ -144,7 +149,8 @@ static Efl_Util_Data _eflutil =
       EINA_FALSE,
       NULL, NULL,
       { NULL, NULL, NULL }, /* tizen_policy protocol */
-      { NULL, NULL, NULL }  /* screenshooter protocol */
+      { NULL, NULL, NULL }, /* screenshooter protocol */
+      { NULL, -1 } /* tizen_input_device_manager protocol */
    },
 #endif /* end of WAYLAND */
    {
@@ -173,6 +179,11 @@ static void                    _cb_wl_tz_policy_notification_done(void *data, st
 static void                    _cb_wl_tz_policy_transient_for_done(void *data, struct tizen_policy *tizen_policy, uint32_t child_id);
 static void                    _cb_wl_tz_policy_scr_mode_done(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface, uint32_t mode, uint32_t state);
 
+static void                    _cb_device_add(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED, uint32_t serial  EINA_UNUSED, const char *identifier  EINA_UNUSED, struct tizen_input_device *device  EINA_UNUSED, struct wl_seat *seat EINA_UNUSED);
+static void                    _cb_device_remove(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED, uint32_t serial EINA_UNUSED, const char *identifier  EINA_UNUSED, struct tizen_input_device *device EINA_UNUSED, struct wl_seat *seat EINA_UNUSED);
+static void                    _cb_error(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED, uint32_t errorcode);
+static void                    _cb_block_expired(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED);
+
 static const struct wl_registry_listener _wl_reg_listener =
 {
    _cb_wl_reg_global,
@@ -187,6 +198,15 @@ struct tizen_policy_listener _wl_tz_policy_listener =
    _cb_wl_tz_policy_transient_for_done,
    _cb_wl_tz_policy_scr_mode_done
 };
+
+struct tizen_input_device_manager_listener _wl_tz_devmgr_listener =
+{
+   _cb_device_add,
+   _cb_device_remove,
+   _cb_error,
+   _cb_block_expired
+};
+
 #endif /* end of WAYLAND */
 
 static Eina_Bool
@@ -486,6 +506,11 @@ _cb_wl_reg_global(void *data,
      {
         _eflutil.wl.shot.screenshooter = wl_registry_bind(reg, name, &screenshooter_interface, version);
         screenshooter_add_listener(_eflutil.wl.shot.screenshooter, &screenshooter_listener, NULL);
+     }
+   else if (strcmp(interface, "tizen_input_device_manager") == 0)
+     {
+        _eflutil.wl.devmgr.devicemgr = wl_registry_bind(reg, name, &tizen_input_device_manager_interface, version);
+        tizen_input_device_manager_add_listener(_eflutil.wl.devmgr.devicemgr, &_wl_tz_devmgr_listener, NULL);
      }
 }
 
@@ -1224,32 +1249,198 @@ efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
    return EFL_UTIL_ERROR_NONE;
 }
 
-API int
+struct _efl_util_inputgen_h
+{
+   unsigned int init_type;
+};
+
+#if WAYLAND
+static void
+_cb_device_add(void *data EINA_UNUSED,
+               struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED,
+               uint32_t serial EINA_UNUSED,
+               const char *identifier EINA_UNUSED,
+               struct tizen_input_device *device EINA_UNUSED,
+               struct wl_seat *seat EINA_UNUSED)
+{
+   ;
+}
+
+static void
+_cb_device_remove(void *data EINA_UNUSED,
+               struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED,
+               uint32_t serial  EINA_UNUSED,
+               const char *identifier  EINA_UNUSED,
+               struct tizen_input_device *device  EINA_UNUSED,
+               struct wl_seat *seat  EINA_UNUSED)
+{
+   ;
+}
+
+static void
+_cb_error(void *data EINA_UNUSED,
+          struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED,
+          uint32_t errorcode)
+{
+   _eflutil.wl.devmgr.request_notified = errorcode;
+}
+
+static void
+_cb_block_expired(void *data EINA_UNUSED,
+                  struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED)
+{
+   ;
+}
+#endif /* end of WAYLAND */
+
+static efl_util_error_e
+_efl_util_input_convert_input_generator_error(int ret)
+{
+   switch (ret)
+     {
+        case TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE:
+           return EFL_UTIL_ERROR_NONE;
+        case TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_PERMISSION:
+           return EFL_UTIL_ERROR_PERMISSION_DENIED;
+        case TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_SYSTEM_RESOURCES:
+           return EFL_UTIL_ERROR_OUT_OF_MEMORY;
+        case TIZEN_INPUT_DEVICE_MANAGER_ERROR_INVALID_PARAMETER:
+           return EFL_UTIL_ERROR_INVALID_PARAMETER;
+        default :
+           return EFL_UTIL_ERROR_NONE;
+     }
+}
+
+API efl_util_inputgen_h
 efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
 {
-   return EFL_UTIL_ERROR_NONE;
-}
+   int res = EFL_UTIL_ERROR_NONE;
+   efl_util_inputgen_h inputgen_h = NULL;
 
-API void
-efl_util_input_deinitialize_generator(void)
-{
-   return;
+   if ((dev_type <= EFL_UTIL_INPUT_DEVTYPE_NONE) ||
+       (dev_type >= EFL_UTIL_INPUT_DEVTYPE_MAX))
+     {
+        set_last_result(EFL_UTIL_ERROR_NO_SUCH_DEVICE);
+        goto out;
+     }
+
+   inputgen_h = (efl_util_inputgen_h)calloc(1, sizeof(struct _efl_util_inputgen_h));
+   if (!inputgen_h)
+     {
+        set_last_result(EFL_UTIL_ERROR_OUT_OF_MEMORY);
+        goto out;
+     }
+
+   inputgen_h->init_type |= dev_type;
+#if WAYLAND
+   res = _wl_init();
+   if (res == (int)EINA_FALSE)
+     {
+        set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
+        goto out;
+     }
+
+   while (!_eflutil.wl.devmgr.devicemgr)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   tizen_input_device_manager_init_generator(_eflutil.wl.devmgr.devicemgr);
+#endif
+
+   return inputgen_h;
+
+out:
+   if (inputgen_h)
+     {
+        free(inputgen_h);
+        inputgen_h = NULL;
+     }
+   return NULL;
 }
 
 API int
-efl_util_input_generate_key(const char *key_name,
-                            int pressed)
+efl_util_input_deinitialize_generator(efl_util_inputgen_h inputgen_h)
 {
+   EINA_SAFETY_ON_NULL_RETURN_VAL(inputgen_h, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   free(inputgen_h);
+   inputgen_h = NULL;
+
+#if WAYLAND
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.devmgr.devicemgr, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   tizen_input_device_manager_deinit_generator(_eflutil.wl.devmgr.devicemgr);
+#endif
+
    return EFL_UTIL_ERROR_NONE;
 }
 
 API int
-efl_util_input_generate_touch(int idx,
-                              efl_util_input_touch_type_e touch_type,
-                              int x,
-                              int y)
+efl_util_input_generate_key(efl_util_inputgen_h inputgen_h, const char *key_name, int pressed)
 {
-   return EFL_UTIL_ERROR_NONE;
+   int ret = EFL_UTIL_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(inputgen_h, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(key_name, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(pressed == 0 || pressed == 1, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(inputgen_h->init_type & EFL_UTIL_INPUT_DEVTYPE_KEYBOARD, EFL_UTIL_ERROR_NO_SUCH_DEVICE);
+
+#if WAYLAND
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.devmgr.devicemgr, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   tizen_input_device_manager_generate_key(_eflutil.wl.devmgr.devicemgr, key_name, pressed);
+
+   while (_eflutil.wl.devmgr.request_notified == -1)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   ret = _efl_util_input_convert_input_generator_error(_eflutil.wl.devmgr.request_notified);
+   _eflutil.wl.devmgr.request_notified = -1;
+#endif
+
+   return ret;
+}
+
+API int
+efl_util_input_generate_touch(efl_util_inputgen_h inputgen_h, int idx,
+                              efl_util_input_touch_type_e touch_type, int x, int y)
+{
+   int ret;
+#if WAYLAND
+   enum tizen_input_device_manager_pointer_event_type type;
+#endif
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(inputgen_h, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(idx >= 0, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((x > 0 && y > 0), EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(inputgen_h->init_type & EFL_UTIL_INPUT_DEVTYPE_TOUCHSCREEN, EFL_UTIL_ERROR_NO_SUCH_DEVICE);
+
+#if WAYLAND
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.devmgr.devicemgr, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   switch(touch_type)
+     {
+        case EFL_UTIL_INPUT_TOUCH_BEGIN:
+           type = TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_BEGIN;
+           break;
+        case EFL_UTIL_INPUT_TOUCH_UPDATE:
+           type = TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_UPDATE;
+           break;
+        case EFL_UTIL_INPUT_TOUCH_END:
+           type = TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_END;
+           break;
+        default:
+           return EFL_UTIL_ERROR_INVALID_PARAMETER;
+     }
+
+   tizen_input_device_manager_generate_touch(_eflutil.wl.devmgr.devicemgr, type, x, y, idx);
+
+   while (_eflutil.wl.devmgr.request_notified == -1)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   ret = _efl_util_input_convert_input_generator_error(_eflutil.wl.devmgr.request_notified);
+   _eflutil.wl.devmgr.request_notified = -1;
+#endif
+
+   return ret;
 }
 
 struct _efl_util_screenshot_h
