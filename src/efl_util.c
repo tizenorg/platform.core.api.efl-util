@@ -171,6 +171,9 @@ static void                    _cb_wl_tz_policy_conformant_area(void *data, stru
 static void                    _cb_wl_tz_policy_notification_done(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface, int32_t level, uint32_t state);
 static void                    _cb_wl_tz_policy_transient_for_done(void *data, struct tizen_policy *tizen_policy, uint32_t child_id);
 static void                    _cb_wl_tz_policy_scr_mode_done(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface, uint32_t mode, uint32_t state);
+static void                    _cb_wl_tz_policy_iconify_state_changed(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, uint32_t iconified, uint32_t force);
+static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, struct wl_array *hints, uint32_t num_hints);
+static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id);
 
 static const struct wl_registry_listener _wl_reg_listener =
 {
@@ -184,7 +187,10 @@ struct tizen_policy_listener _wl_tz_policy_listener =
    _cb_wl_tz_policy_conformant_area,
    _cb_wl_tz_policy_notification_done,
    _cb_wl_tz_policy_transient_for_done,
-   _cb_wl_tz_policy_scr_mode_done
+   _cb_wl_tz_policy_scr_mode_done,
+   _cb_wl_tz_policy_iconify_state_changed,
+   _cb_wl_tz_policy_supported_aux_hints,
+   _cb_wl_tz_policy_allowed_aux_hint,
 };
 #endif /* end of WAYLAND */
 
@@ -593,6 +599,18 @@ _cb_wl_tz_policy_scr_mode_done(void *data,
    cb_info->cb(cb_info->win,
                EFL_UTIL_ERROR_PERMISSION_DENIED,
                cb_info->data);
+}
+
+static void                    _cb_wl_tz_policy_iconify_state_changed(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, uint32_t iconified, uint32_t force)
+{
+}
+
+static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, struct wl_array *hints, uint32_t num_hints)
+{
+}
+
+static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id)
+{
 }
 
 static void
