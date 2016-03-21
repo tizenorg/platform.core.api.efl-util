@@ -66,7 +66,6 @@ typedef struct _Efl_Util_Callback_Info
 #if WAYLAND
 typedef struct _Efl_Util_Wl_Surface_Lv_Info
 {
-   Evas_Object *window;
    void *surface; /* wl_surface */
    int level;
    Eina_Bool wait_for_done;
@@ -597,36 +596,6 @@ _cb_wl_tz_policy_scr_mode_done(void *data,
 }
 
 static void
-_cb_window_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Efl_Util_Wl_Surface_Lv_Info *lv_info;
-   Ecore_Wl_Window *wlwin;
-   struct wl_surface *surface;
-
-   lv_info = data;
-   if (EINA_UNLIKELY(!lv_info))
-     return;
-
-   wlwin = elm_win_wl_window_get(lv_info->window);
-   if (EINA_UNLIKELY(!wlwin))
-     return;
-
-   surface = ecore_wl_window_surface_get(wlwin);
-   if (EINA_UNLIKELY(!surface))
-     return;
-
-   eina_hash_free_cb_set(_eflutil.wl.policy.hash_noti_lv, NULL);
-   eina_hash_del_by_key(_eflutil.wl.policy.hash_noti_lv, &lv_info->surface);
-
-   lv_info->surface = surface;
-   eina_hash_add(_eflutil.wl.policy.hash_noti_lv, &surface, lv_info);
-   eina_hash_free_cb_set(_eflutil.wl.policy.hash_noti_lv, free);
-
-   tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
-                                       surface, (int)lv_info->level);
-}
-
-static void
 _cb_window_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Efl_Util_Wl_Surface_Lv_Info *lv_info;
@@ -715,7 +684,6 @@ efl_util_set_notification_window_level(Evas_Object *window,
         lv_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Lv_Info));
         EINA_SAFETY_ON_NULL_RETURN_VAL(lv_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
 
-        lv_info->window = window;
         lv_info->surface = surface;
         lv_info->level = (int)level;
         lv_info->wait_for_done = EINA_TRUE;
@@ -724,8 +692,6 @@ efl_util_set_notification_window_level(Evas_Object *window,
                       &surface,
                       lv_info);
 
-        evas_object_event_callback_add(window, EVAS_CALLBACK_SHOW,
-                                       _cb_window_show, lv_info);
         evas_object_event_callback_add(window, EVAS_CALLBACK_DEL,
                                        _cb_window_del, lv_info);
      }
