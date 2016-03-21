@@ -622,6 +622,7 @@ _cb_window_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, v
    eina_hash_add(_eflutil.wl.policy.hash_noti_lv, &surface, lv_info);
    eina_hash_free_cb_set(_eflutil.wl.policy.hash_noti_lv, free);
 
+   lv_info->wait_for_done = EINA_TRUE;
    tizen_policy_set_notification_level(_eflutil.wl.policy.proto,
                                        surface, (int)lv_info->level);
 }
