@@ -1298,7 +1298,7 @@ _efl_util_input_convert_input_generator_error(int ret)
 API efl_util_inputgen_h
 efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
 {
-   int res = EFL_UTIL_ERROR_NONE;
+   int ret = EFL_UTIL_ERROR_NONE;
    efl_util_inputgen_h inputgen_h = NULL;
 
    if ((dev_type <= EFL_UTIL_INPUT_DEVTYPE_NONE) ||
@@ -1317,8 +1317,8 @@ efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
 
    inputgen_h->init_type |= dev_type;
 #if WAYLAND
-   res = _wl_init();
-   if (res == (int)EINA_FALSE)
+   ret = _wl_init();
+   if (ret == (int)EINA_FALSE)
      {
         set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
         goto out;
@@ -1328,6 +1328,16 @@ efl_util_input_initialize_generator(efl_util_input_device_type_e dev_type)
      wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
 
    tizen_input_device_manager_init_generator(_eflutil.wl.devmgr.devicemgr);
+
+   while (_eflutil.wl.devmgr.request_notified == -1)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   ret = _efl_util_input_convert_input_generator_error(_eflutil.wl.devmgr.request_notified);
+   _eflutil.wl.devmgr.request_notified = -1;
+
+   set_last_result(ret);
+   if (ret != TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE)
+     goto out;
 #endif
 
    return inputgen_h;
@@ -1344,6 +1354,7 @@ out:
 API int
 efl_util_input_deinitialize_generator(efl_util_inputgen_h inputgen_h)
 {
+   int ret = EFL_UTIL_ERROR_NONE;
    EINA_SAFETY_ON_NULL_RETURN_VAL(inputgen_h, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    free(inputgen_h);
@@ -1353,9 +1364,15 @@ efl_util_input_deinitialize_generator(efl_util_inputgen_h inputgen_h)
    EINA_SAFETY_ON_NULL_RETURN_VAL(_eflutil.wl.devmgr.devicemgr, EFL_UTIL_ERROR_INVALID_PARAMETER);
 
    tizen_input_device_manager_deinit_generator(_eflutil.wl.devmgr.devicemgr);
+
+   while (_eflutil.wl.devmgr.request_notified == -1)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   ret = _efl_util_input_convert_input_generator_error(_eflutil.wl.devmgr.request_notified);
+   _eflutil.wl.devmgr.request_notified = -1;
 #endif
 
-   return EFL_UTIL_ERROR_NONE;
+   return ret;
 }
 
 API int
