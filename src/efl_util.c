@@ -1821,7 +1821,7 @@ API int efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
 #endif
 #if WAYLAND
    if (!screenshot)
-     return EFL_UTIL_ERROR_NONE;
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
 
    free(screenshot);
    g_screenshot = NULL;
