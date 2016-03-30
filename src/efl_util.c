@@ -1271,7 +1271,8 @@ _efl_util_screenshot_get_port(Display *dpy, unsigned int id, Window win)
    return -1;
 }
 
-static int _efl_util_screenshot_get_best_size(Display *dpy, int port, int width, int height, unsigned int *best_width, unsigned int *best_height)
+static int
+_efl_util_screenshot_get_best_size(Display *dpy, int port, int width, int height, unsigned int *best_width, unsigned int *best_height)
 {
    XErrorHandler old_handler = NULL;
 
@@ -1294,7 +1295,8 @@ static int _efl_util_screenshot_get_best_size(Display *dpy, int port, int width,
 }
 #endif
 
-API efl_util_screenshot_h efl_util_screenshot_initialize(int width, int height)
+API efl_util_screenshot_h
+efl_util_screenshot_initialize(int width, int height)
 {
 #if X11
    efl_util_screenshot_h screenshot = NULL;
@@ -1491,7 +1493,8 @@ fail_init:
    return NULL;
 }
 
-API int efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
+API int
+efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
 {
 #if X11
    if (!screenshot)
@@ -1557,7 +1560,8 @@ API int efl_util_screenshot_deinitialize(efl_util_screenshot_h screenshot)
 }
 
 
-API tbm_surface_h efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
+API tbm_surface_h
+efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
 {
 #if X11
    XEvent ev = {0,};
