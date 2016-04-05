@@ -3,7 +3,7 @@
 
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in Tizen C API
-Version:    0.2.1
+Version:    0.2.2
 Release:    1
 Group:      Graphics & UI Framework/API
 License:    Apache-2.0
