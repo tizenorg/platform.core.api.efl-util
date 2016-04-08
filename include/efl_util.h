@@ -257,6 +257,42 @@ API int efl_util_set_window_screen_mode_error_cb(Evas_Object *window, efl_util_w
 API int efl_util_unset_window_screen_mode_error_cb(Evas_Object *window);
 
 /**
+ * @brief Sets the user's preferred brightness of the specified window.
+ * @details This API is useful when the application need to change the brightness of the screen when it is appeared on the screen.
+ *          If the application sets the brightness 0 to 100 to its window and the application window is shown wholly or partially,
+ *          the window manager requests the display system to change the brightness of the screen using user's preferred brightness.
+ *          If the window is no longer shown, then the window manger request the display system to go back to default brightness.
+ *          If the brightness is less than 0, this means to use the default screen brightness.
+ * @since_tizen 3.0
+ * @privlevel public
+ * @privilege %http://tizen.org/privilege/display
+ * @remarks This API needs the privilege.
+ *          If the application which is not get the privilege use this API, the window manager generates the permission deny error.
+ * @param[in] window The EFL window
+ * @param[in] brightness The preferred brightness
+ * @return @c 0 on success, otherwise a negative error value
+ * @retval #EFL_UTIL_ERROR_NONE Successful
+ * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+ * @retval #EFL_UTIL_ERROR_PERMISSION_DENIED Permission denied
+ * @retval #EFL_UTIL_ERROR_OUT_OF_MEMORY Out of memory
+ * @see efl_util_get_window_brightness_level()
+ */
+API int efl_util_set_window_brightness_level(Evas_Object *window, int brightness);
+
+/**
+ * @brief Gets the user's preferred brightness of the specified window.
+ * @since_tizen 3.0
+ * @param[in] window The EFL window
+ * @param[out] brightness The preferred brightness
+ * @return @c 0 on success, otherwise a negative error value
+ * @retval #EFL_UTIL_ERROR_NONE Successful
+ * @retval #EFL_UTIL_ERROR_INVALID_PARAMETER Invalid parameter
+ * @see efl_util_set_window_brightness_level()
+ */
+API int efl_util_get_window_brightness_level(Evas_Object *window, int *brightness);
+
+
+/**
  * @}
  */
 
