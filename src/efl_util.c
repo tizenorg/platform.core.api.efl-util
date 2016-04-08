@@ -80,6 +80,14 @@ typedef struct _Efl_Util_Wl_Surface_Scr_Mode_Info
    uint32_t state;
 } Efl_Util_Wl_Surface_Scr_Mode_Info;
 
+typedef struct _Efl_Util_Wl_Surface_Brightness_Info
+{
+   void *surface; /* wl_surface */
+   int brightness;
+   Eina_Bool wait_for_done;
+   uint32_t state;
+} Efl_Util_Wl_Surface_Brightness_Info;
+
 typedef struct _Efl_Util_Wl_Output_Info
 {
     struct wl_output *output;
@@ -112,6 +120,7 @@ typedef struct _Efl_Util_Data
          struct tizen_policy *proto;
          Eina_Hash *hash_noti_lv;
          Eina_Hash *hash_scr_mode;
+         Eina_Hash *hash_brightness;
       } policy;
       struct
       {
@@ -180,6 +189,7 @@ static void                    _cb_wl_tz_policy_scr_mode_done(void *data, struct
 static void                    _cb_wl_tz_policy_iconify_state_changed(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, uint32_t iconified, uint32_t force);
 static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, struct wl_array *hints, uint32_t num_hints);
 static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id);
+static void                    _cb_wl_tz_policy_brightness_done(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int32_t brightness, uint32_t state);
 
 static void                    _cb_device_add(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED, uint32_t serial  EINA_UNUSED, const char *identifier  EINA_UNUSED, struct tizen_input_device *device  EINA_UNUSED, struct wl_seat *seat EINA_UNUSED);
 static void                    _cb_device_remove(void *data EINA_UNUSED, struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED, uint32_t serial EINA_UNUSED, const char *identifier  EINA_UNUSED, struct tizen_input_device *device EINA_UNUSED, struct wl_seat *seat EINA_UNUSED);
@@ -202,6 +212,7 @@ struct tizen_policy_listener _wl_tz_policy_listener =
    _cb_wl_tz_policy_iconify_state_changed,
    _cb_wl_tz_policy_supported_aux_hints,
    _cb_wl_tz_policy_allowed_aux_hint,
+   _cb_wl_tz_policy_brightness_done,
 };
 
 struct tizen_input_device_manager_listener _wl_tz_devmgr_listener =
@@ -495,6 +506,7 @@ _cb_wl_reg_global(void *data,
 
         _eflutil.wl.policy.hash_noti_lv = eina_hash_pointer_new(free);
         _eflutil.wl.policy.hash_scr_mode = eina_hash_pointer_new(free);
+        _eflutil.wl.policy.hash_brightness = eina_hash_pointer_new(free);
         _eflutil.wl.policy.proto = proto;
      }
    else if (strcmp(interface, "wl_output") == 0)
@@ -527,6 +539,7 @@ _cb_wl_reg_global_remove(void *data,
    _eflutil.wl.policy.proto = NULL;
    eina_hash_free(_eflutil.wl.policy.hash_noti_lv);
    eina_hash_free(_eflutil.wl.policy.hash_scr_mode);
+   eina_hash_free(_eflutil.wl.policy.hash_brightness);
 }
 
 static Efl_Util_Callback_Info *
@@ -636,6 +649,24 @@ static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, 
 
 static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id)
 {
+}
+
+static void
+_cb_wl_tz_policy_brightness_done(void *data,
+                                 struct tizen_policy *tizen_policy,
+                                 struct wl_surface *surface,
+                                 int32_t brightness,
+                                 uint32_t state)
+{
+   Efl_Util_Wl_Surface_Brightness_Info *brightness_info;
+
+   brightness_info = eina_hash_find(_eflutil.wl.policy.hash_brightness, &surface);
+   if (brightness_info)
+     {
+        brightness_info->brightness = brightness;
+        brightness_info->wait_for_done = EINA_FALSE;
+        brightness_info->state = state;
+     }
 }
 
 static void
@@ -1232,6 +1263,138 @@ efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
 
    return EFL_UTIL_ERROR_NONE;
 }
+
+API int
+efl_util_set_window_brightness_level(Evas_Object *window, int brightness)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(brightness <= 100, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+#if X11
+   return EFL_UTIL_ERROR_NONE;
+#endif /* end of X11 */
+
+#if WAYLAND
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Brightness_Info *brightness_info;
+   Eina_Bool res;
+
+   res = _wl_init();
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   wlwin = elm_win_wl_window_get(window);
+   if (wlwin)
+     {
+        while (!_eflutil.wl.policy.proto)
+          wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+        surface = ecore_wl_window_surface_get(wlwin);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                       EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+        brightness_info = eina_hash_find(_eflutil.wl.policy.hash_brightness, &surface);
+        if (!brightness_info)
+          {
+             brightness_info = calloc(1, sizeof(Efl_Util_Wl_Surface_Brightness_Info));
+             EINA_SAFETY_ON_NULL_RETURN_VAL(brightness_info, EFL_UTIL_ERROR_OUT_OF_MEMORY);
+
+             brightness_info->surface = surface;
+             brightness_info->brightness = brightness;
+             brightness_info->wait_for_done = EINA_TRUE;
+             brightness_info->state = TIZEN_POLICY_ERROR_STATE_NONE;
+
+             eina_hash_add(_eflutil.wl.policy.hash_brightness,
+                           &surface,
+                           brightness_info);
+           }
+         else
+           {
+              brightness_info->brightness = brightness;
+              brightness_info->wait_for_done = EINA_TRUE;
+              brightness_info->state = TIZEN_POLICY_ERROR_STATE_NONE;
+           }
+
+         tizen_policy_set_window_brightness(_eflutil.wl.policy.proto,
+                                            surface, brightness);
+         if (brightness_info->wait_for_done)
+           {
+              int count = 0;
+              while (brightness_info->wait_for_done && (count < 3))
+                {
+                   ecore_wl_flush();
+                   wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+                   count++;
+                }
+
+              if (brightness_info->wait_for_done)
+                {
+                   return EFL_UTIL_ERROR_INVALID_PARAMETER;
+                }
+              else
+                {
+                   if (brightness_info->state == TIZEN_POLICY_ERROR_STATE_PERMISSION_DENIED)
+                     {
+                        return EFL_UTIL_ERROR_PERMISSION_DENIED;
+                     }
+                }
+           }
+        return EFL_UTIL_ERROR_NONE;
+     }
+   else
+     return EFL_UTIL_ERROR_INVALID_PARAMETER;
+#endif /* end of WAYLAND */
+}
+
+API int
+efl_util_get_window_brightness_level(Evas_Object *window, int *brightness)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EFL_UTIL_ERROR_INVALID_PARAMETER);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(brightness, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+#if X11
+   return EFL_UTIL_ERROR_NONE;
+#endif /* end of X11 */
+
+#if WAYLAND
+   Ecore_Wl_Window *wlwin;
+   struct wl_surface *surface;
+   Efl_Util_Wl_Surface_Brightness_Info *brightness_info;
+   Eina_Bool res;
+
+   res = _wl_init();
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   wlwin = elm_win_wl_window_get(window);
+   if (!wlwin) return EFL_UTIL_ERROR_INVALID_PARAMETER;
+
+   while (!_eflutil.wl.policy.proto)
+     wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+
+   surface = ecore_wl_window_surface_get(wlwin);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(surface,
+                                  EFL_UTIL_ERROR_INVALID_PARAMETER);
+
+   brightness_info = eina_hash_find(_eflutil.wl.policy.hash_brightness, &surface);
+   if (brightness_info)
+     {
+        if (brightness_info->wait_for_done)
+          {
+             while (brightness_info->wait_for_done)
+               {
+                  ecore_wl_flush();
+                  wl_display_dispatch_queue(_eflutil.wl.dpy, _eflutil.wl.queue);
+               }
+          }
+         *brightness = brightness_info->brightness;
+     }
+   else
+     *brightness = -1;
+
+   return EFL_UTIL_ERROR_NONE;
+#endif /* end of WAYLAND */
+}
+
 
 struct _efl_util_inputgen_h
 {
