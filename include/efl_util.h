@@ -134,7 +134,7 @@ API int efl_util_get_notification_window_level(Evas_Object *window, efl_util_not
 typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window, int error_code, void *user_data);
 
 /**
- * @deprecated Deprecated since_tizen 3.0.
+ * @deprecated Deprecated since 3.0.
  * @brief Registers a callback function to be invoked when an error which set the notification level occurs.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @remarks An application can check error by the return value of efl_util_set_notification_window_level since 3.0.
@@ -152,7 +152,7 @@ typedef void (*efl_util_notification_window_level_error_cb)(Evas_Object *window,
 API int efl_util_set_notification_window_level_error_cb(Evas_Object *window, efl_util_notification_window_level_error_cb callback, void *user_data);
 
 /**
- * @deprecated Deprecated since_tizen 3.0.
+ * @deprecated Deprecated since 3.0.
  * @brief Unregisters the callback function.
  * @since_tizen @if MOBILE 2.3 @elseif WEARABLE 2.3.1 @endif
  * @remarks An application can check error by the return value of efl_util_set_notification_window_level since 3.0.
@@ -213,7 +213,7 @@ API int efl_util_set_window_screen_mode(Evas_Object *window, efl_util_screen_mod
 API int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mode_e *mode);
 
 /**
- * @deprecated Deprecated since_tizen 3.0.
+ * @deprecated Deprecated since 3.0.
  * @brief Called when an error occurs for setting window's screen mode
  * @since_tizen 2.4
  * @remarks An application can check error by the return value of efl_util_set_window_screen_mode since 3.0.
@@ -226,7 +226,7 @@ API int efl_util_get_window_screen_mode(Evas_Object *window, efl_util_screen_mod
 typedef void (*efl_util_window_screen_mode_error_cb)(Evas_Object *window, int error_code, void *user_data);
 
 /**
- * @deprecated Deprecated since_tizen 3.0.
+ * @deprecated Deprecated since 3.0.
  * @brief Registers a callback function to be invoked when an error which set the screen mode.
  * @since_tizen 2.4
  * @remarks An application can check error by the return value of efl_util_set_window_screen_mode since 3.0.
@@ -244,7 +244,7 @@ typedef void (*efl_util_window_screen_mode_error_cb)(Evas_Object *window, int er
 API int efl_util_set_window_screen_mode_error_cb(Evas_Object *window, efl_util_window_screen_mode_error_cb callback, void *user_data);
 
 /**
- * @deprecated Deprecated since_tizen 3.0.
+ * @deprecated Deprecated since 3.0.
  * @brief Unregisters the callback function.
  * @since_tizen 2.4
  * @remarks An application can check error by the return value of efl_util_set_window_screen_mode since 3.0.
