@@ -55,6 +55,9 @@ cp %{SOURCE1001} .
 %build
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
+%if "%{profile}" == "wearable"
+    -DTIZEN_WEARABLE=YES \
+%endif
 %if %{with wayland}
 -DWITH_WAYLAND=TRUE
 %endif

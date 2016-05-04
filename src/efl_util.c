@@ -1248,6 +1248,7 @@ efl_util_get_window_screen_mode(Evas_Object *window,
 #endif /* end of WAYLAND */
 }
 
+#ifndef TIZEN_WEARABLE
 API int
 efl_util_set_window_screen_mode_error_cb(Evas_Object *window,
                                          efl_util_window_screen_mode_error_cb callback,
@@ -1284,6 +1285,7 @@ efl_util_unset_window_screen_mode_error_cb(Evas_Object *window)
 
    return EFL_UTIL_ERROR_NONE;
 }
+#endif
 
 API int
 efl_util_set_window_brightness(Evas_Object *window, int brightness)
