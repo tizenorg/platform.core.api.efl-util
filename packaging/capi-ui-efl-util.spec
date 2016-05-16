@@ -1,5 +1,3 @@
-%bcond_with x
-%bcond_with wayland
 
 Name:       capi-ui-efl-util
 Summary:    An EFL utility library in Tizen C API
@@ -11,24 +9,11 @@ Source0:    %{name}-%{version}.tar.gz
 Source1001: 	capi-ui-efl-util.manifest
 BuildRequires:  cmake
 BuildRequires:  pkgconfig(dlog)
-%if %{with x}
-BuildRequires:  pkgconfig(x11)
-BuildRequires:  pkgconfig(utilX)
-BuildRequires:  pkgconfig(ecore-x)
-BuildRequires:  pkgconfig(xtst)
-BuildRequires:  pkgconfig(libdri2)
-BuildRequires:  pkgconfig(dri2proto)
-BuildRequires:  pkgconfig(xext)
-BuildRequires:  pkgconfig(xv)
-BuildRequires:  pkgconfig(xdamage)
-%endif
-%if %{with wayland}
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(wayland-tbm-client)
 BuildRequires:  pkgconfig(screenshooter-client)
 BuildRequires:  pkgconfig(tizen-extension-client)
 BuildRequires:  pkgconfig(ecore-wayland)
-%endif
 BuildRequires:  pkgconfig(elementary)
 BuildRequires:  pkgconfig(capi-base-common)
 BuildRequires:  pkgconfig(libdrm)
@@ -57,12 +42,6 @@ MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
 %if "%{profile}" == "wearable"
     -DTIZEN_WEARABLE=YES \
-%endif
-%if %{with wayland}
--DWITH_WAYLAND=TRUE
-%endif
-%if %{with x}
--DWITH_X11=TRUE
 %endif
 
 make %{?jobs:-j%jobs}

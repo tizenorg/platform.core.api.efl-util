@@ -19,15 +19,8 @@ INCLUDE_DIRECTORIES(${INC_DIR})
 # required dependencies
 SET(dependents "dlog elementary capi-base-common libdrm libtbm")
 
-IF (WITH_X11)
-    ADD_DEFINITIONS("-DX11")
-    SET(dependents "${dependents} ecore-x utilX x11 xv libdri2 xext xdamage xtst")
-ENDIF (WITH_X11)
-
-IF (WITH_WAYLAND)
-    ADD_DEFINITIONS("-DWAYLAND")
-    SET(dependents "${dependents} ecore-wayland wayland-client wayland-tbm-client screenshooter-client tizen-extension-client")
-ENDIF (WITH_WAYLAND)
+ADD_DEFINITIONS("-DWAYLAND")
+SET(dependents "${dependents} ecore-wayland wayland-client wayland-tbm-client screenshooter-client tizen-extension-client")
 
 INCLUDE(FindPkgConfig)
 pkg_check_modules(${fw_name} REQUIRED ${dependents})
