@@ -19,7 +19,6 @@ INCLUDE_DIRECTORIES(${INC_DIR})
 # required dependencies
 SET(dependents "dlog elementary capi-base-common libdrm libtbm")
 
-ADD_DEFINITIONS("-DWAYLAND")
 SET(dependents "${dependents} ecore-wayland wayland-client wayland-tbm-client screenshooter-client tizen-extension-client")
 
 INCLUDE(FindPkgConfig)
@@ -36,7 +35,6 @@ IF("${ARCH}" STREQUAL "arm")
 ENDIF("${ARCH}" STREQUAL "arm")
 
 ADD_DEFINITIONS("-DPREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
-ADD_DEFINITIONS("-DSLP_DEBUG")
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -Wl,--rpath=${LIB_INSTALL_DIR}")
 
