@@ -444,7 +444,7 @@ _cb_info_find_by_wlsurf(void *wlsurf,
 
    return NULL;
 }
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
 static void
 _cb_wl_tz_policy_conformant(void *data, struct tizen_policy *tizen_policy,
                             struct wl_surface *surface, uint32_t is_conformant)
@@ -457,7 +457,7 @@ _cb_wl_tz_policy_conformant_area(void *data, struct tizen_policy *tizen_policy,
                                  uint32_t state, int32_t x, int32_t y, int32_t w, int32_t h)
 {
 }
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 static void
 _cb_wl_tz_policy_notification_done(void *data,
@@ -488,12 +488,12 @@ _cb_wl_tz_policy_notification_done(void *data,
                cb_info->data);
 }
 
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
 static void
 _cb_wl_tz_policy_transient_for_done(void *data, struct tizen_policy *tizen_policy, uint32_t child_id)
 {
 }
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 static void
 _cb_wl_tz_policy_scr_mode_done(void *data,
@@ -525,7 +525,7 @@ _cb_wl_tz_policy_scr_mode_done(void *data,
                cb_info->data);
 }
 
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
 static void                    _cb_wl_tz_policy_iconify_state_changed(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, uint32_t iconified, uint32_t force)
 {
 }
@@ -537,7 +537,7 @@ static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, 
 static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id)
 {
 }
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 static void
 _cb_wl_tz_display_policy_brightness_done(void *data,
@@ -1115,7 +1115,7 @@ _cb_device_add(void *data EINA_UNUSED,
    ;
 }
 
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
 static void
 _cb_device_remove(void *data EINA_UNUSED,
                struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED,
@@ -1126,7 +1126,7 @@ _cb_device_remove(void *data EINA_UNUSED,
 {
    ;
 }
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 static void
 _cb_error(void *data EINA_UNUSED,
@@ -1136,14 +1136,14 @@ _cb_error(void *data EINA_UNUSED,
    _eflutil.wl.devmgr.request_notified = errorcode;
 }
 
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
 static void
 _cb_block_expired(void *data EINA_UNUSED,
                   struct tizen_input_device_manager *tizen_input_device_manager EINA_UNUSED)
 {
    ;
 }
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 
 static efl_util_error_e
 _efl_util_input_convert_input_generator_error(int ret)
@@ -1370,12 +1370,12 @@ fail_param:
    set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
    return NULL;
 fail_memory:
-//LCOV_EXCL_START
+/* LCOV_EXCL_START */
    if (screenshot)
      efl_util_screenshot_deinitialize(screenshot);
    set_last_result(EFL_UTIL_ERROR_OUT_OF_MEMORY);
    return NULL;
-//LCOV_EXCL_STOP
+/* LCOV_EXCL_STOP */
 fail_init:
    if (screenshot)
      efl_util_screenshot_deinitialize(screenshot);
@@ -1416,21 +1416,21 @@ efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
    output = eina_list_nth(_eflutil.wl.shot.output_list, 0);
    if (!output)
      {
-        fprintf(stderr, "[screenshot] fail: no output for screenshot\n");//LCOV_EXCL_LINE
+        fprintf(stderr, "[screenshot] fail: no output for screenshot\n"); /* LCOV_EXCL_LINE */
         goto fail;
      }
 
    t_surface = tbm_surface_create(screenshot->width, screenshot->height, TBM_FORMAT_XRGB8888);
    if (!t_surface)
      {
-        fprintf(stderr, "[screenshot] fail: tbm_surface_create\n");//LCOV_EXCL_LINE
+        fprintf(stderr, "[screenshot] fail: tbm_surface_create\n"); /* LCOV_EXCL_LINE */
         goto fail;
      }
 
    buffer = wayland_tbm_client_create_buffer(_eflutil.wl.shot.tbm_client, t_surface);
    if (!buffer)
      {
-        fprintf(stderr, "[screenshot] fail: create wl_buffer for screenshot\n");//LCOV_EXCL_LINE
+        fprintf(stderr, "[screenshot] fail: create wl_buffer for screenshot\n"); /* LCOV_EXCL_LINE */
         goto fail;
      }
 
@@ -1442,7 +1442,7 @@ efl_util_screenshot_take_tbm_surface(efl_util_screenshot_h screenshot)
 
    if (ret == -1)
      {
-        fprintf(stderr, "[screenshot] fail: screenshooter_shoot\n");//LCOV_EXCL_LINE
+        fprintf(stderr, "[screenshot] fail: screenshooter_shoot\n"); /* LCOV_EXCL_LINE */
         goto fail;
      }
 
