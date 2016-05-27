@@ -38,6 +38,7 @@ cp %{SOURCE1001} .
 
 
 %build
+export CFLAGS+=" -Werror "
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
 %if "%{profile}" == "wearable"
