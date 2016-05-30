@@ -36,6 +36,18 @@ Requires: %{name} = %{version}-%{release}
 %setup -q
 cp %{SOURCE1001} .
 
+cp -a include/efl_util.h.in include/efl_util.h
+%if "%{profile}" != "wearable"
+   sed -i 's/\$TZ_CFG_VER_24_OR_30\$/2.4/g'    include/efl_util.h
+   sed -i 's/\$TZ_CFG_VER_24_OR_231\$/2.4/g'   include/efl_util.h
+   sed -i '/\$TZ_CFG_KEEP_BEGIN\$/d'           include/efl_util.h
+   sed -i '/\$TZ_CFG_KEEP_END\$/d'             include/efl_util.h
+%else
+   sed -i 's/\$TZ_CFG_VER_24_OR_30\$/3.0/g'    include/efl_util.h
+   sed -i 's/\$TZ_CFG_VER_24_OR_231\$/2.3.1/g' include/efl_util.h
+   sed -ie '/\$TZ_CFG_KEEP_BEGIN\$/,/\$TZ_CFG_KEEP_END\$/{s/\$TZ_CFG_KEEP_BEGIN\$//p;d}' include/efl_util.h
+%endif
+
 
 %build
 export CFLAGS+=" -Werror "
