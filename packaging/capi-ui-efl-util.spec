@@ -50,7 +50,6 @@ cp -a include/efl_util.h.in include/efl_util.h
 
 
 %build
-export CFLAGS+=" -Werror "
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
 %if "%{profile}" == "wearable"
