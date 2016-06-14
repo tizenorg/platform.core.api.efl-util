@@ -411,7 +411,7 @@ _cb_wl_reg_global(void *data,
      }
 
 }
-
+/* LCOV_EXCL_START */
 static void
 _cb_wl_reg_global_remove(void *data,
                          struct wl_registry *reg,
@@ -444,7 +444,7 @@ _cb_info_find_by_wlsurf(void *wlsurf,
 
    return NULL;
 }
-/* LCOV_EXCL_START */
+
 static void
 _cb_wl_tz_policy_conformant(void *data, struct tizen_policy *tizen_policy,
                             struct wl_surface *surface, uint32_t is_conformant)
