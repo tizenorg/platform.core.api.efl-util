@@ -292,8 +292,6 @@ fail:
         _eflutil.wl.queue = NULL;
      }
 
-   if (reg)
-     wl_registry_destroy(reg);
    ecore_wl_shutdown();
    return EINA_FALSE;
 }
@@ -1371,8 +1369,6 @@ fail_param:
    return NULL;
 fail_memory:
 /* LCOV_EXCL_START */
-   if (screenshot)
-     efl_util_screenshot_deinitialize(screenshot);
    set_last_result(EFL_UTIL_ERROR_OUT_OF_MEMORY);
    return NULL;
 /* LCOV_EXCL_STOP */
