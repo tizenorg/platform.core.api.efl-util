@@ -1363,8 +1363,6 @@ efl_util_screenshot_initialize(int width, int height)
    return g_screenshot;
 
 fail_param:
-   if (screenshot)
-     efl_util_screenshot_deinitialize(screenshot);
    set_last_result(EFL_UTIL_ERROR_INVALID_PARAMETER);
    return NULL;
 fail_memory:
