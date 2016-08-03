@@ -152,6 +152,7 @@ static void                    _cb_wl_tz_policy_scr_mode_done(void *data, struct
 static void                    _cb_wl_tz_policy_iconify_state_changed(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, uint32_t iconified, uint32_t force);
 static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, struct wl_array *hints, uint32_t num_hints);
 static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id);
+static void                    _cb_wl_tz_policy_aux_message(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, const char *key, const char *val, struct wl_array *options);
 
 static void                    _cb_wl_tz_display_policy_brightness_done(void *data, struct tizen_display_policy *tizen_display_policy, struct wl_surface *surface_resource, int32_t brightness, uint32_t state);
 
@@ -176,6 +177,7 @@ struct tizen_policy_listener _wl_tz_policy_listener =
    _cb_wl_tz_policy_iconify_state_changed,
    _cb_wl_tz_policy_supported_aux_hints,
    _cb_wl_tz_policy_allowed_aux_hint,
+   _cb_wl_tz_policy_aux_message,
 };
 
 struct tizen_input_device_manager_listener _wl_tz_devmgr_listener =
@@ -533,6 +535,10 @@ static void                    _cb_wl_tz_policy_supported_aux_hints(void *data, 
 }
 
 static void                    _cb_wl_tz_policy_allowed_aux_hint(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, int id)
+{
+}
+
+static void                    _cb_wl_tz_policy_aux_message(void *data, struct tizen_policy *tizen_policy, struct wl_surface *surface_resource, const char *key, const char *val, struct wl_array *options)
 {
 }
 /* LCOV_EXCL_STOP */
